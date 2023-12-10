@@ -116,10 +116,11 @@ visual_terrain_np.set_pos(-1.0, -1.0, 0.0)
 visual_terrain_np.set_sx(2.0)
 visual_terrain_np.set_sy(2.0)
 
+
 # ...and attaching the compute nodes
-simulator.add_water_cn.reparent_to(visual_terrain_np)
-simulator.evaporate_cn.reparent_to(visual_terrain_np)
-simulator.update_main_data_cn.reparent_to(visual_terrain_np)
+for node in simulator.compute_nodes:
+    node.reparent_to(visual_terrain_np)
+
 
 # Camera needs some love, too
 base.cam.set_pos(2, -2, 2)

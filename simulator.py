@@ -6,43 +6,46 @@ from panda3d.core import PerlinNoise2
 from panda3d.core import ComputeNode
 
 
-resolution = 32
+resolution = 256
 f_res = float(resolution)
 
 
 evaporation_constant = 0.0
 
 
-def make_map():
+def make_map(name, channels=1):
+    assert channels in [1, 4]
     image = PfmFile()
     image.clear(
         x_size=resolution,
         y_size=resolution,
-        num_channels=4,
+        num_channels=channels,
     )
-    image.fill((0.0, 0.0, 0.0, 1.0))
+    if channels == 1:
+        image.fill(0.0)
+    else:
+        image.fill((0.0, 0.0, 0.0, 0.0))
 
-    texture = Texture('')
-    texture.setup_2d_texture(
-        resolution,
-        resolution,
-        Texture.T_float,
-        Texture.F_rgba32,
-    )
+    texture = Texture(name)
+    texture.load(image)
+    if channels == 1:
+        texture.set_format(Texture.F_r16)
+    else:
+        texture.set_format(Texture.F_rgba16)
     texture.wrap_u = Texture.WM_clamp
     texture.wrap_v = Texture.WM_clamp
 
-    texture.load(image)
     return texture, image
 
 
-terrain_height,                 terrain_height_img = make_map()
-water_height,                   water_height_img   = make_map()
-water_influx,                   water_influx_img   = make_map()
-water_crossflux,                _                  = make_map()
-water_height_after_influx,      _                  = make_map()
-water_height_after_crossflux,   _                  = water_height_after_influx, None  #make_map()
-water_height_after_evaporation, _                  = make_map()
+terrain_height,                 terrain_height_img = make_map('terrain_height')
+water_height,                   water_height_img   = make_map('water_height')
+water_influx,                   water_influx_img   = make_map('water_influx')
+water_crossflux,                _                  = make_map('water_crossflux', channels=4)
+water_height_after_influx,      _                  = make_map('water_height_after_influx')
+water_height_after_crossflux,   _                  = make_map('water_height_after_crossflux')
+water_height_after_evaporation, _                  = make_map('water_height_after_evaporation')
+
 
 # Terrain height from Perlin noise
 noise_generator = PerlinNoise2() 
@@ -53,24 +56,27 @@ for x in range(resolution):
         coord_y = y / f_res
         local_height = noise_generator.noise(coord_x, coord_y) / 2.0 + 0.5
         local_height *= 0.5
-        terrain_height_img.set_point4(x, y, (local_height, 0, 0, 1))
+        terrain_height_img.set_point1(x, y, local_height)
 terrain_height.load(terrain_height_img)
+terrain_height.set_format(Texture.F_r16)
 
 # Water at the beginning
-for x in range(resolution//2):
-    coord_x = x / f_res
-    for y in range(resolution//2):
-        coord_y = y / f_res
-        water_height_img.set_point4(x, y, (0.2, 0, 0, 0))
-water_height.load(water_height_img)
+# for x in range(resolution//2):
+#     coord_x = x / f_res
+#     for y in range(resolution//2):
+#         coord_y = y / f_res
+#         water_height_img.set_point4(x, y, (0.2, 0, 0, 0))
+# water_height.load(water_height_img)
+
 
 # Small global water influx
-for x in range(resolution//2):
-    coord_x = x / f_res
-    for y in range(resolution//2):
-        coord_y = y / f_res
-        water_influx_img.set_point4(x, y, (0.01, 0, 0, 0))
+# for x in range(resolution):
+#     coord_x = x / f_res
+#     for y in range(resolution):
+#         coord_y = y / f_res
+water_influx_img.set_point1(resolution//2, resolution//2, 1.0)
 water_influx.load(water_influx_img)
+water_influx.set_format(Texture.F_r16)
 
 
 def add_compute_node(code, cull_bin_sort, inputs):
@@ -95,10 +101,9 @@ add_water = """
 layout (local_size_x=16, local_size_y=16) in;
 
 uniform float dt;
-layout(rgba32f) uniform readonly image2D waterHeight;
-layout(rgba32f) uniform readonly image2D waterInflux;
-layout(rgba32f) uniform writeonly image2D waterHeightAfterInflux;
-
+layout(r16f) uniform readonly image2D waterHeight;
+layout(r16f) uniform readonly image2D waterInflux;
+layout(r16f) uniform writeonly image2D waterHeightAfterInflux;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -116,6 +121,36 @@ add_water_cn = add_compute_node(
         waterHeightAfterInflux=water_height_after_influx,
     ),
 )
+
+
+calculate_outflux = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+uniform float dt;
+layout(r16f) uniform readonly image2D terrainHeight;
+layout(r16f) uniform readonly image2D waterHeightAfterInflux;
+layout(r16f) uniform writeonly image2D waterHeightAfterCrossflux;
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  vec4 newWaterHeight = imageLoad(waterHeightAfterInflux, coord);
+  imageStore(waterHeightAfterCrossflux, coord, newWaterHeight);
+}
+"""
+calculate_outflux_cn = add_compute_node(
+    calculate_outflux,
+    1,
+    dict(
+        dt=1.0/60.0,
+        terrainHeight=terrain_height,
+        waterHeightAfterInflux=water_height_after_influx,
+        waterHeightAfterCrossflux=water_height_after_crossflux,
+    ),
+)
+
+
 evaporate = """
 #version 430
 
@@ -123,9 +158,8 @@ layout (local_size_x=16, local_size_y=16) in;
 
 uniform float evaporationConstant;
 uniform float dt;
-layout(rgba32f) uniform readonly image2D waterHeightAfterCrossflux;
-layout(rgba32f) uniform writeonly image2D waterHeightAfterEvaporation;
-
+layout(r16f) uniform readonly image2D waterHeightAfterCrossflux;
+layout(r16f) uniform writeonly image2D waterHeightAfterEvaporation;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -135,7 +169,7 @@ void main() {
 """
 evaporate_cn = add_compute_node(
     evaporate,
-    1,
+    2,
     dict(
         dt=1.0/60.0,
         evaporationConstant=evaporation_constant,
@@ -151,8 +185,8 @@ update_main_data = """
 layout (local_size_x=16, local_size_y=16) in;
 
 uniform float dt;
-layout(rgba32f) uniform readonly image2D waterHeightAfterEvaporation;
-layout(rgba32f) uniform writeonly image2D waterHeight;
+layout(r16f) uniform readonly image2D waterHeightAfterEvaporation;
+layout(r16f) uniform writeonly image2D waterHeight;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -162,9 +196,17 @@ void main() {
 """
 update_main_data_cn = add_compute_node(
     update_main_data,
-    2,
+    3,
     dict(
         waterHeightAfterEvaporation=water_height_after_evaporation,
         waterHeight=water_height,
     ),
 )
+
+
+compute_nodes = [
+    add_water_cn,
+    calculate_outflux_cn, 
+    evaporate_cn,
+    update_main_data_cn,
+]

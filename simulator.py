@@ -6,11 +6,13 @@ from panda3d.core import PerlinNoise2
 from panda3d.core import ComputeNode
 
 
-resolution = 256
+resolution = 128
 f_res = float(resolution)
 
 
 evaporation_constant = 0.0
+pipe_coefficient = 9.81 / 4.0  # gravity g * pipe cross area A / pipe length l
+cell_distance = 1.0
 
 
 def make_map(name, channels=1):
@@ -41,8 +43,8 @@ def make_map(name, channels=1):
 terrain_height,                 terrain_height_img = make_map('terrain_height')
 water_height,                   water_height_img   = make_map('water_height')
 water_influx,                   water_influx_img   = make_map('water_influx')
-water_crossflux,                _                  = make_map('water_crossflux', channels=4)
 water_height_after_influx,      _                  = make_map('water_height_after_influx')
+water_crossflux,                _                  = make_map('water_crossflux', channels=4)
 water_height_after_crossflux,   _                  = make_map('water_height_after_crossflux')
 water_height_after_evaporation, _                  = make_map('water_height_after_evaporation')
 
@@ -61,12 +63,13 @@ terrain_height.load(terrain_height_img)
 terrain_height.set_format(Texture.F_r16)
 
 # Water at the beginning
-# for x in range(resolution//2):
+# for x in range(resolution//4, 3 * resolution//4):
 #     coord_x = x / f_res
-#     for y in range(resolution//2):
+#     for y in range(resolution//4, 3 * resolution//4):
 #         coord_y = y / f_res
 #         water_height_img.set_point4(x, y, (0.2, 0, 0, 0))
 # water_height.load(water_height_img)
+# water_height.set_format(Texture.F_r16)
 
 
 # Small global water influx
@@ -74,7 +77,7 @@ terrain_height.set_format(Texture.F_r16)
 #     coord_x = x / f_res
 #     for y in range(resolution):
 #         coord_y = y / f_res
-water_influx_img.set_point1(resolution//2, resolution//2, 1.0)
+water_influx_img.set_point1(resolution//2, resolution//2, 10.0)
 water_influx.load(water_influx_img)
 water_influx.set_format(Texture.F_r16)
 
@@ -129,14 +132,36 @@ calculate_outflux = """
 layout (local_size_x=16, local_size_y=16) in;
 
 uniform float dt;
+uniform float pipeCoefficient;
+uniform float cellDistance;
 layout(r16f) uniform readonly image2D terrainHeight;
 layout(r16f) uniform readonly image2D waterHeightAfterInflux;
-layout(r16f) uniform writeonly image2D waterHeightAfterCrossflux;
+layout(rgba16f) uniform image2D waterCrossflux;
+
+const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  vec4 newWaterHeight = imageLoad(waterHeightAfterInflux, coord);
-  imageStore(waterHeightAfterCrossflux, coord, newWaterHeight);
+  float localWaterHeight = imageLoad(waterHeightAfterInflux, coord).x;
+  float localTotalHeight = imageLoad(terrainHeight, coord).x + localWaterHeight;
+  vec4 currentCrossflux = imageLoad(waterCrossflux, coord);
+  const int arraySize = 4;
+  float crossflux[arraySize] = float[](0.0, 0.0, 0.0, 0.0);
+  crossflux[0] = currentCrossflux.r;
+  crossflux[1] = currentCrossflux.g;
+  crossflux[2] = currentCrossflux.b;
+  crossflux[3] = currentCrossflux.a;
+  for (int i = 0; i < 4; i++) {
+    ivec2 neighborCoord = coord + deltaCoord[i];
+    float neighborTotalHeight = imageLoad(terrainHeight, neighborCoord).x + imageLoad(waterHeightAfterInflux, neighborCoord).x;
+    float deltaHeight = localTotalHeight - neighborTotalHeight;
+    crossflux[i] = max(0.0, crossflux[i] + deltaHeight * pipeCoefficient * dt);
+  }
+  float scalingFactor = min(1, localWaterHeight * cellDistance * cellDistance / ((crossflux[0] + crossflux[1] + crossflux[2] + crossflux[3]) * dt));
+  for (int i = 0; i < 4; i++) {
+    crossflux[i] *= scalingFactor;
+  }
+  imageStore(waterCrossflux, coord, vec4(crossflux[0], crossflux[1], crossflux[2], crossflux[3]));
 }
 """
 calculate_outflux_cn = add_compute_node(
@@ -144,8 +169,51 @@ calculate_outflux_cn = add_compute_node(
     1,
     dict(
         dt=1.0/60.0,
+        pipeCoefficient=pipe_coefficient,
+        cellDistance=cell_distance,
         terrainHeight=terrain_height,
         waterHeightAfterInflux=water_height_after_influx,
+        waterCrossflux=water_crossflux,
+    ),
+)
+
+
+apply_crossflux = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+uniform float dt;
+uniform float cellDistance;
+layout(r16f) uniform readonly image2D waterHeightAfterInflux;
+layout(rgba16f) uniform readonly image2D waterCrossflux;
+layout(r16f) uniform writeonly image2D waterHeightAfterCrossflux;
+
+const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  float inflowLeft = imageLoad(waterCrossflux, coord + deltaCoord[0]).g;
+  float inflowRight = imageLoad(waterCrossflux, coord + deltaCoord[1]).r;
+  float inflowBottom = imageLoad(waterCrossflux, coord + deltaCoord[2]).a;
+  float inflowTop = imageLoad(waterCrossflux, coord + deltaCoord[3]).b;
+  float totalInflow = inflowLeft + inflowRight + inflowBottom + inflowTop;
+  vec4 outflows = imageLoad(waterCrossflux, coord);
+  float totalOutflow = outflows.r + outflows.g + outflows.b + outflows.a;
+  float deltaVolume = (totalInflow - totalOutflow) * dt;
+  float oldWaterHeight = imageLoad(waterHeightAfterInflux, coord).x;
+  float newWaterHeight = oldWaterHeight + deltaVolume / (cellDistance * cellDistance);
+  imageStore(waterHeightAfterCrossflux, coord, vec4(newWaterHeight, 0.0, 0.0, 0.0));
+}
+"""
+apply_crossflux_cn = add_compute_node(
+    apply_crossflux,
+    1,
+    dict(
+        dt=1.0/60.0,
+        cellDistance=cell_distance,
+        waterHeightAfterInflux=water_height_after_influx,
+        waterCrossflux=water_crossflux,
         waterHeightAfterCrossflux=water_height_after_crossflux,
     ),
 )
@@ -206,7 +274,8 @@ update_main_data_cn = add_compute_node(
 
 compute_nodes = [
     add_water_cn,
-    calculate_outflux_cn, 
+    calculate_outflux_cn,
+    apply_crossflux_cn,
     evaporate_cn,
     update_main_data_cn,
 ]

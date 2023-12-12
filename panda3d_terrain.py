@@ -22,46 +22,76 @@ base.disable_mouse()
 base.accept('escape', base.task_mgr.stop)
 
 
-vertex_shader = """
+double_heightmap_shader = """
 #version 430
 
 in vec4 vertex;
 in vec2 texcoord;
 
 uniform mat4 p3d_ModelViewProjectionMatrix;
-uniform sampler2D terrainHeight;
-uniform sampler2D waterHeight;
+uniform sampler2D heightA;
+uniform sampler2D heightB;
 
 out vec2 uv;
-out float localTerrainHeight;
-out float localWaterHeight;
+out float height;
 
 void main()  {
   uv = texcoord;
-  localTerrainHeight = texture2D(terrainHeight, texcoord).x;
-  localWaterHeight = texture2D(waterHeight, texcoord).x;
+  float localHeightA = texture(heightA, texcoord).x;
+  float localHeightB = texture(heightB, texcoord).x;
+  height = localHeightA + localHeightB;
   vec4 finalPos = vertex;
-  finalPos.z = localTerrainHeight + localWaterHeight;
+  finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
 }
 """
-fragment_shader = """
+heightmap_shader = """
+#version 430
+
+in vec4 vertex;
+in vec2 texcoord;
+
+uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform sampler2D heightA;
+
+out vec2 uv;
+out float height;
+
+void main()  {
+  uv = texcoord;
+  height = texture(heightA, texcoord).x;
+  vec4 finalPos = vertex;
+  finalPos.z = height;
+  gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
+}
+"""
+terrain_shader = """
 #version 430
 
 in vec2 uv;
-in float localTerrainHeight;
-in float localWaterHeight;
+in float height;
 
 layout(location = 0) out vec4 diffuseColor;
 
 vec4 green = vec4(0.0, 1.0, 0.0, 1.0);
 vec4 gray = vec4(0.5, 0.5, 0.5, 1.0);
+
+void main () {
+  diffuseColor = mix(green, gray, height);
+}
+"""
+water_shader = """
+#version 430
+
+in vec2 uv;
+in float height;
+
+layout(location = 0) out vec4 diffuseColor;
+
 vec4 blue = vec4(0.0, 0.0, 1.0, 1.0);
 
 void main () {
-  vec4 groundColor = mix(green, gray, localTerrainHeight);
-  float waterFactor = min(1.0, localWaterHeight * 20.0);
-  diffuseColor = mix(groundColor, blue, waterFactor);
+  diffuseColor = blue;
 }
 """
 
@@ -102,12 +132,27 @@ def make_model():
 visual_terrain_np = make_model()
 visual_terrain_shader = Shader.make(
     Shader.SL_GLSL,
-    vertex=vertex_shader,
-    fragment=fragment_shader,
+    vertex=heightmap_shader,
+    fragment=terrain_shader,
 )
 visual_terrain_np.set_shader(visual_terrain_shader)
-visual_terrain_np.set_shader_input("terrainHeight", simulator.terrain_height)
-visual_terrain_np.set_shader_input("waterHeight", simulator.water_height)
+visual_terrain_np.set_shader_input("heightA", simulator.terrain_height)
+
+
+visual_water_np = make_model()
+visual_water_shader = Shader.make(
+    Shader.SL_GLSL,
+    vertex=double_heightmap_shader,
+    fragment=water_shader,
+)
+visual_water_np.set_shader(visual_water_shader)
+visual_water_np.set_shader_input("heightA", simulator.terrain_height)
+visual_water_np.set_shader_input("heightB", simulator.water_height)
+
+
+visual_water_np.reparent_to(visual_terrain_np)
+#visual_terrain_np.hide()
+#visual_water_np.show()
 
 
 # Attaching the terrain to the scene
@@ -128,9 +173,14 @@ base.cam.look_at(0, 0, 0.25)
 
 # And we want to stop the influx of water, and begin evaporation.
 def end_of_influx():
-    simulator.evaporate_cn.set_shader_input("evaporationConstant", 1.0)
-    simulator.water_influx_img.fill((0.0, 0, 0, 0))
+    from panda3d.core import Texture
+    simulator.water_influx_img.set_point1(resolution//2, resolution//2, 50.0)
     simulator.water_influx.load(simulator.water_influx_img)
+    simulator.water_influx.set_format(Texture.F_r16)
+    #simulator.evaporate_cn.set_shader_input("evaporationConstant", 1.0)
+    #simulator.water_influx_img.fill((0.0, 0, 0, 0))
+    #simulator.water_influx.load(simulator.water_influx_img)
 base.accept("space", end_of_influx)
 
+base.set_frame_rate_meter(True)
 base.run()

@@ -6,12 +6,12 @@ from panda3d.core import PerlinNoise2
 from panda3d.core import ComputeNode
 
 
-resolution = 128
+resolution = 128*4
 f_res = float(resolution)
 
 
-evaporation_constant = 0.0
-pipe_coefficient = 9.81 / 4.0  # gravity g * pipe cross area A / pipe length l
+evaporation_constant = 0.3
+pipe_coefficient = 9.81 * 10.0  # gravity g * pipe cross area A / pipe length l
 cell_distance = 1.0
 
 
@@ -48,10 +48,24 @@ water_crossflux,                _                  = make_map('water_crossflux',
 water_height_after_crossflux,   _                  = make_map('water_height_after_crossflux')
 water_height_after_evaporation, _                  = make_map('water_height_after_evaporation')
 
+mem_use = sum(
+    [t.estimate_texture_memory() for t in
+     [
+         terrain_height,
+         water_height,
+         water_influx,
+         water_height_after_influx,
+         water_crossflux,
+         water_height_after_crossflux,
+         water_height_after_evaporation,
+     ]
+     ]
+)
+print(f"Memory use: {mem_use} bytes")
 
 # Terrain height from Perlin noise
 noise_generator = PerlinNoise2() 
-noise_generator.setScale(0.1) 
+noise_generator.setScale(0.2)
 for x in range(resolution):
     coord_x = x / f_res
     for y in range(resolution):
@@ -61,15 +75,19 @@ for x in range(resolution):
         terrain_height_img.set_point1(x, y, local_height)
 terrain_height.load(terrain_height_img)
 terrain_height.set_format(Texture.F_r16)
+#terrain_height.wrap_u = Texture.WM_clamp
+#terrain_height.wrap_v = Texture.WM_clamp
 
 # Water at the beginning
-# for x in range(resolution//4, 3 * resolution//4):
-#     coord_x = x / f_res
-#     for y in range(resolution//4, 3 * resolution//4):
-#         coord_y = y / f_res
-#         water_height_img.set_point4(x, y, (0.2, 0, 0, 0))
-# water_height.load(water_height_img)
-# water_height.set_format(Texture.F_r16)
+for x in range(3 * resolution//8, 5 * resolution//8):
+    coord_x = x / f_res
+    for y in range(3 * resolution//8, 5 * resolution//8):
+        coord_y = y / f_res
+        water_height_img.set_point4(x, y, (0.5, 0, 0, 0))
+water_height.load(water_height_img)
+water_height.set_format(Texture.F_r16)
+#water_height.wrap_u = Texture.WM_clamp
+#water_height.wrap_v = Texture.WM_clamp
 
 
 # Small global water influx
@@ -77,9 +95,9 @@ terrain_height.set_format(Texture.F_r16)
 #     coord_x = x / f_res
 #     for y in range(resolution):
 #         coord_y = y / f_res
-water_influx_img.set_point1(resolution//2, resolution//2, 10.0)
-water_influx.load(water_influx_img)
-water_influx.set_format(Texture.F_r16)
+#water_influx_img.set_point1(resolution//2, resolution//2, 10.0)
+#water_influx.load(water_influx_img)
+#water_influx.set_format(Texture.F_r16)
 
 
 def add_compute_node(code, cull_bin_sort, inputs):

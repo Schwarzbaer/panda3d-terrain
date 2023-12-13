@@ -77,7 +77,7 @@ vec4 green = vec4(0.0, 1.0, 0.0, 1.0);
 vec4 gray = vec4(0.5, 0.5, 0.5, 1.0);
 
 void main () {
-  diffuseColor = mix(green, gray, height);
+  diffuseColor = mix(green, gray, height*2.0);
 }
 """
 water_shader = """
@@ -168,13 +168,21 @@ for node in simulator.compute_nodes:
 
 
 # Camera needs some love, too
-base.cam.set_pos(2, -2, 2)
+base.cam.set_pos(2, -2, 6)
+#base.cam.set_pos(2, -2, 2)
 base.cam.look_at(0, 0, 0.25)
 
 # And we want to stop the influx of water, and begin evaporation.
 def end_of_influx():
     from panda3d.core import Texture
-    simulator.water_influx_img.set_point1(resolution//2, resolution//2, 50.0)
+    sixteenth = resolution//16 * 2 * 2
+    for x in range(2):
+        for y in range(2):
+            simulator.water_influx_img.set_point1(
+                (x * 2 + 1) * sixteenth,
+                (y * 2 + 1) * sixteenth,
+                50.0,
+            )
     simulator.water_influx.load(simulator.water_influx_img)
     simulator.water_influx.set_format(Texture.F_r16)
     #simulator.evaporate_cn.set_shader_input("evaporationConstant", 1.0)

@@ -20,14 +20,23 @@ Current Model
     advanced.
 * Intermediate Maps
   * `water_height_after_influx`
-  * `water_height_after_crossflux` == `water_height_after_influx`
+  * `water_crossflux`
+  * `water_height_after_crossflux`
   * `water_height_after_evaporation`
 * Process
   * Influx of water: Add new water to the simulation.
     `water_height_after_influx = water_height + water_influx * dt`
+  * Calculate outflux
+    For each direction/channel: `water_outflux = current_outflux + height_difference * hight_difference * pipe_coefficient * dt`, lower border of `0.0`.
+    If the amount of outflowing water is greater than that of water
+    actually present in this cell, scale the outflux so that exactly
+    zero water remains.
   * Crossflux of water
+    `water_height_after_crossflux = water_height_after_influx - own water_crossflux + neighbors' water_crossflux to this cell`
   * Evaporate water: Remove a fraction of water from each cell.
     `water_height_after_evaporation = water_height_after_crossflux * (1 - evaporation_constant * dt)`
+  * Update main data
+    `waterHeight = waterHeightAfterEvaporation`
 
 
 Papers

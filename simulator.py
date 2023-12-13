@@ -5,12 +5,15 @@ from panda3d.core import Shader
 from panda3d.core import PerlinNoise2
 from panda3d.core import ComputeNode
 
+from panda3d.core import Vec2
+from math import sin
+from math import pi
 
-resolution = 128*4
+resolution = 512
 f_res = float(resolution)
 
 
-evaporation_constant = 0.3
+evaporation_constant = 0.01
 pipe_coefficient = 9.81 * 10.0  # gravity g * pipe cross area A / pipe length l
 cell_distance = 1.0
 
@@ -73,19 +76,22 @@ for x in range(resolution):
         local_height = noise_generator.noise(coord_x, coord_y) / 2.0 + 0.5
         local_height *= 0.5
         terrain_height_img.set_point1(x, y, local_height)
+        #height_1 = sin(x * 2 * pi * 4 / f_res) * 0.25
+        #height_2 = sin(y * 2 * pi * 4 / f_res) * 0.25
+        #terrain_height_img.set_point1(x, y, max(0.0, height_1 + height_2))
 terrain_height.load(terrain_height_img)
 terrain_height.set_format(Texture.F_r16)
-#terrain_height.wrap_u = Texture.WM_clamp
-#terrain_height.wrap_v = Texture.WM_clamp
+terrain_height.wrap_u = Texture.WM_clamp
+terrain_height.wrap_v = Texture.WM_clamp
 
 # Water at the beginning
-for x in range(3 * resolution//8, 5 * resolution//8):
-    coord_x = x / f_res
-    for y in range(3 * resolution//8, 5 * resolution//8):
-        coord_y = y / f_res
-        water_height_img.set_point4(x, y, (0.5, 0, 0, 0))
-water_height.load(water_height_img)
-water_height.set_format(Texture.F_r16)
+#for x in range(3 * resolution//8, 5 * resolution//8):
+#    coord_x = x / f_res
+#    for y in range(3 * resolution//8, 5 * resolution//8):
+#        coord_y = y / f_res
+#        water_height_img.set_point4(x, y, (0.5, 0, 0, 0))
+#water_height.load(water_height_img)
+#water_height.set_format(Texture.F_r16)
 #water_height.wrap_u = Texture.WM_clamp
 #water_height.wrap_v = Texture.WM_clamp
 
@@ -226,7 +232,7 @@ void main() {
 """
 apply_crossflux_cn = add_compute_node(
     apply_crossflux,
-    1,
+    2,
     dict(
         dt=1.0/60.0,
         cellDistance=cell_distance,
@@ -255,7 +261,7 @@ void main() {
 """
 evaporate_cn = add_compute_node(
     evaporate,
-    2,
+    3,
     dict(
         dt=1.0/60.0,
         evaporationConstant=evaporation_constant,
@@ -282,7 +288,7 @@ void main() {
 """
 update_main_data_cn = add_compute_node(
     update_main_data,
-    3,
+    4,
     dict(
         waterHeightAfterEvaporation=water_height_after_evaporation,
         waterHeight=water_height,
@@ -297,3 +303,22 @@ compute_nodes = [
     evaporate_cn,
     update_main_data_cn,
 ]
+
+
+#        self.pipe_coefficient = 9.81 * 10.0  # gravity g * pipe cross area A / pipe length l
+#        self.cell_distance = 1.0
+class Simulation:
+    def __init__(self, resolution=128, evaporation_constant=0.01):
+        f_res = float(resolution)
+        # TODO: Set up the model
+        self.evaporation_constant = evaporation_constant
+
+    @property
+    def evaporation_constant(self):
+        return self._evaporation_constant
+
+    @evaporation_constant.setter
+    def evaporation_constant(self, value):
+        self._evaporation_constant = value
+        # TODO: Set shader inputs
+

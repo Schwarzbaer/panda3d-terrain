@@ -52,9 +52,14 @@ ShowBase()
 base.disable_mouse()
 base.accept('escape', base.task_mgr.stop)
 
-terrain = make_terrain(simulator)
+if simulator.resolution > 256:
+    resolution = 256
+else:
+    resolution = simulator.resolution
+terrain = make_terrain(simulator, resolution=resolution)
 terrain.reparent_to(base.render)
 simulator.attach_compute_nodes(terrain)
+#simulator.attach_compute_nodes(base.render)
 
 
 # And we want to stop the influx of water, and begin evaporation.

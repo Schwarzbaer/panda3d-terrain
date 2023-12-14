@@ -116,9 +116,11 @@ def make_model(resolution):
     return surface
 
 
-def make_terrain(simulator):
+def make_terrain(simulator, resolution=None):
+    if resolution is None:
+        resolution = simulator.resolution
     # Putting the visual terrain together...
-    visual_terrain_np = make_model(simulator.resolution)
+    visual_terrain_np = make_model(resolution)
     visual_terrain_shader = Shader.make(
         Shader.SL_GLSL,
         vertex=heightmap_shader,
@@ -128,7 +130,7 @@ def make_terrain(simulator):
     visual_terrain_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     
     
-    visual_water_np = make_model(simulator.resolution)
+    visual_water_np = make_model(resolution)
     visual_water_shader = Shader.make(
         Shader.SL_GLSL,
         vertex=double_heightmap_shader,

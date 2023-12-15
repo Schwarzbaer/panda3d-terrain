@@ -58,41 +58,46 @@ ivec2 wrapCoord(ivec2 coordIn) {
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  float localWaterHeight = imageLoad(waterHeight, coord).x;
-  float localTotalHeight = imageLoad(terrainHeight, coord).x + localWaterHeight;
-  vec4 currentCrossflux = imageLoad(waterCrossflux, coord);
-  const int arraySize = 4;
-  float crossflux[arraySize] = float[](0.0, 0.0, 0.0, 0.0);
-  crossflux[0] = currentCrossflux.r;
-  crossflux[1] = currentCrossflux.g;
-  crossflux[2] = currentCrossflux.b;
-  crossflux[3] = currentCrossflux.a;
-  for (int i = 0; i < 4; i++) {
-    ivec2 neighborCoord = wrapCoord(coord + deltaCoord[i]);
-    float neighborTotalHeight = imageLoad(terrainHeight, neighborCoord).x + imageLoad(waterHeight, neighborCoord).x;
-    float deltaHeight = localTotalHeight - neighborTotalHeight;
-    crossflux[i] = max(0.0, crossflux[i] + deltaHeight * pipeCoefficient * dt);
-  }
+  vec4 localTerrainHeight = vec4(imageLoad(terrainHeight, coord).x);
+  vec4 localWaterHeight = vec4(imageLoad(waterHeight, coord).x);
+  vec4 localTotalHeight = localTerrainHeight + localWaterHeight;
+  vec4 neighborTerrainHeight = vec4(
+    imageLoad(terrainHeight, wrapCoord(coord + ivec2(-1,  0))).x,
+    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 1,  0))).x,
+    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 0, -1))).x,
+    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 0,  1))).x
+  );
+  vec4 neighborWaterHeight = vec4(
+    imageLoad(waterHeight, wrapCoord(coord + ivec2(-1,  0))).x,
+    imageLoad(waterHeight, wrapCoord(coord + ivec2( 1,  0))).x,
+    imageLoad(waterHeight, wrapCoord(coord + ivec2( 0, -1))).x,
+    imageLoad(waterHeight, wrapCoord(coord + ivec2( 0,  1))).x
+  );
+  vec4 neighborTotalHeight = neighborTerrainHeight + neighborWaterHeight;
+  vec4 deltaHeight = localTotalHeight - neighborTotalHeight;
+  vec4 crossflux = imageLoad(waterCrossflux, coord);
+  crossflux = max(crossflux + deltaHeight * pipeCoefficient * dt, 0.0);
   {% if boundary_condition == BoundaryConditions.CLOSED %}
     // Clamp outflow at boundaries to 0.0
     if (coord.x == 0) {
-      crossflux[0] = 0.0;
+      crossflux.r = 0.0;
     }
     if (coord.x == imageSize(waterCrossflux).x - 1) {
-      crossflux[1] = 0.0;
+      crossflux.g = 0.0;
     }
     if (coord.y == 0) {
-      crossflux[2] = 0.0;
+      crossflux.b = 0.0;
     }
     if (coord.y == imageSize(waterCrossflux).y - 1) {
-      crossflux[3] = 0.0;
+      crossflux.a = 0.0;
     }
   {% endif %}
-  float scalingFactor = min(1, localWaterHeight * cellDistance * cellDistance / ((crossflux[0] + crossflux[1] + crossflux[2] + crossflux[3]) * dt));
-  for (int i = 0; i < 4; i++) {
-    crossflux[i] *= scalingFactor;
-  }
-  imageStore(waterCrossflux, coord, vec4(crossflux[0], crossflux[1], crossflux[2], crossflux[3]));
+  float totalOutflux = crossflux.r + crossflux.g + crossflux.b + crossflux.a;
+  float cellArea = cellDistance * cellDistance;
+  float waterVolume = localWaterHeight.x * cellArea;
+  float scalingFactor = min(waterVolume / (totalOutflux * dt), 1.0);
+  crossflux *= scalingFactor;
+  imageStore(waterCrossflux, coord, crossflux);
 }
 """
 shader_sources['apply_crossflux'] = """
@@ -285,7 +290,8 @@ class Simulation:
         data, process = model
         for (name, channels) in data:
             self.textures[name], self.images[name] = self.make_map(name, channels=channels)
-        for cull_bin_sort, (name, shader_params) in enumerate(process.items()):
+        for cull_bin_idx, (name, shader_params) in enumerate(process.items()):
+            cull_bin_sort = -len(process) + cull_bin_idx
             self.compute_nodes[name] = self.add_compute_node(name, cull_bin_sort, shader_params)
 
     def add_compute_node(self, name, cull_bin_sort, shader_params):
@@ -299,6 +305,7 @@ class Simulation:
             Shader.SL_GLSL,
             shader_template.render(**render_params),
         )
+        compute_shader.set_filename(Shader.ST_none, name)
         workgroups = (self.resolution // 16, self.resolution // 16, 1)
         compute_node = ComputeNode("compute")
         compute_node.add_dispatch(*workgroups)

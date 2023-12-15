@@ -126,6 +126,7 @@ def make_terrain(simulator, resolution=None):
         vertex=heightmap_shader,
         fragment=terrain_shader,
     )
+    visual_terrain_shader.set_filename(Shader.ST_none, 'terrain')
     visual_terrain_np.set_shader(visual_terrain_shader)
     visual_terrain_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     
@@ -136,6 +137,7 @@ def make_terrain(simulator, resolution=None):
         vertex=double_heightmap_shader,
         fragment=water_shader,
     )
+    visual_water_shader.set_filename(Shader.ST_none, 'water')
     visual_water_np.set_shader(visual_water_shader)
     visual_water_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     visual_water_np.set_shader_input("heightB", simulator.textures['water_height'])

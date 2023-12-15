@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 
 from panda3d.core import load_prc_file_data
+from panda3d.core import PStatClient
 
 from direct.showbase.ShowBase import ShowBase
 
@@ -24,6 +25,16 @@ parser.add_argument(
     '--evaporation',
     help='Fraction of of total water in a cell that is evaporated in a second.',
 )
+parser.add_argument(
+    '-p',
+    '--pipe',
+    help='Pipe coefficient; Gravity * crossarea of the pipe / its length.',
+)
+parser.add_argument(
+    '-t',
+    '--timestep',
+    help='Time step.',
+)
 args = parser.parse_args()
 
 simulator_kwargs = {}
@@ -31,14 +42,12 @@ if args.resolution is not None:
     simulator_kwargs['resolution'] = int(args.resolution)
 if args.evaporation is not None:
     simulator_kwargs['evaporation_constant'] = float(args.evaporation)
-
-
+if args.pipe is not None:
+    simulator_kwargs['pipe_coefficient'] = float(args.pipe)
 simulator = Simulation(
     hyper_model=dict(boundary_condition=BoundaryConditions.CLOSED),  # OPEN, CLOSED, or WRAPPING
     **simulator_kwargs,
 )
-simulator.dt = 1.0 / 60.0
-simulator.print_mem_usage()
 
 
 make_heightmaps.perlin(simulator.images['terrain_height'])
@@ -51,6 +60,22 @@ load_prc_file_data('', 'gl-version 3 2')
 ShowBase()
 base.disable_mouse()
 base.accept('escape', base.task_mgr.stop)
+base.pstats = True
+PStatClient.connect()
+simulator.print_mem_usage()
+
+
+# Set timestep on the simulation / enable wall time steps
+def set_simulator_dt(task):
+    simulator.dt = globalClock.dt
+    return task.cont
+if args.timestep is not None:
+    print(f"Timestep: {args.timestep}")
+    simulator.dt = float(args.timestep)
+else:
+    print(f"Timestep: realtime")
+    base.task_mgr.add(set_simulator_dt, sort=-5)
+
 
 if simulator.resolution > 256:
     resolution = 256
@@ -84,4 +109,5 @@ base.accept("space", toggle_influx)
 base.cam.set_pos(2, -2, 2)
 base.cam.look_at(0, 0, 0.25)
 base.set_frame_rate_meter(True)
+print(base.task_mgr)
 base.run()

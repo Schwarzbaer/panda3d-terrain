@@ -51,9 +51,46 @@ Current Model
 TODO
 ----
 
-* Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
+### Current hot topics
+
 * Aesthetics
-* More papers
+  * Water
+  * Terrain
+* Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
+
+
+### Small nice-to-haves
+
+* Dump final shader source
+* Command line args
+  * hypermodel
+  * Did I miss others?
+
+
+### Icebox
+
+* Performance
+  * Measure, and find the maximum simulation size / optimal workgroup
+    size for realtime.
+    * Requires: Make workgroup size a hyper parameter
+  * Optimizations
+    * Combine shaders into one
+    * Instead of using array, use vector/matrix.
+    * set up `shared` array for the work group that is 2 elements larger
+      than the workgroup, making a one-element border around it. Preload
+      global data into it, and do math. Write output back into global.
+* Loading/saving simulations / dumping images
+* Red/Black mode
+* Offline rendering, sidestepping the vsync limit
+* Tiled simulation for offline rendering of super-large worlds
+* Inflow map: R=inflow measured in height of water column, G=inflow by
+  volume
+* Outflow clamp map: Finer control over where and how boundary
+  conditions occur.
+* Simulation model
+  * Velocity field
+  * Erosion-deposition, lateral sediment transport
+  * More papers
 
 
 Papers

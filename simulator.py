@@ -232,6 +232,7 @@ class Simulation:
             model=water_flow_model,
             hyper_model=default_hyper_model,
             resolution=256,
+            dump_shaders=False,
             cell_distance=1.0,
             pipe_coefficient=98.1,
             evaporation_constant=0.01,
@@ -247,6 +248,7 @@ class Simulation:
         self.compute_nodes = {}
 
         # Set up the model
+        self.dump_shaders = dump_shaders
         self.setup_model(model)
 
         # Apply model parameters
@@ -301,9 +303,13 @@ class Simulation:
             render_params[hyper_parameter] = self.hyper_model[hyper_parameter]
             if hyper_parameter == 'boundary_condition':
                 render_params['BoundaryConditions'] = BoundaryConditions
+        shader_source = shader_template.render(**render_params)
+        if self.dump_shaders:
+            print(f"----- {name} -----")
+            print(shader_source)
         compute_shader = Shader.make_compute(
             Shader.SL_GLSL,
-            shader_template.render(**render_params),
+            shader_source,
         )
         compute_shader.set_filename(Shader.ST_none, name)
         workgroups = (self.resolution // 16, self.resolution // 16, 1)

@@ -69,6 +69,10 @@ TODO
 
 ### Icebox
 
+* Simulation model
+  * Velocity field
+  * Erosion-deposition, lateral sediment transport
+  * More papers
 * Performance
   * Measure, and find the maximum simulation size / optimal workgroup
     size for realtime.
@@ -87,10 +91,6 @@ TODO
   volume
 * Outflow clamp map: Finer control over where and how boundary
   conditions occur.
-* Simulation model
-  * Velocity field
-  * Erosion-deposition, lateral sediment transport
-  * More papers
 
 
 Papers

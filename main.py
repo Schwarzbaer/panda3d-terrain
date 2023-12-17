@@ -73,11 +73,15 @@ if args.memory:
 
 make_heightmaps.perlin(simulator.images['terrain_height'])
 #make_heightmaps.funnel(simulator.images['terrain_height'])
-#make_heightmaps.sine_hills(simulator.images['terrain_height'], phases=2)
+#make_heightmaps.sine_hills(simulator.images['terrain_height'], phases=1)
+#make_heightmaps.half(simulator.images['terrain_height'])
 simulator.load_image('terrain_height')
+#make_heightmaps.half(simulator.images['water_height'])
+#simulator.load_image('water_height')
 
 
 load_prc_file_data('', 'gl-version 3 2')
+load_prc_file_data('', 'pstats-gpu-timing #t')
 ShowBase()
 base.disable_mouse()
 base.accept('escape', base.task_mgr.stop)
@@ -113,11 +117,15 @@ influx = False
 def toggle_influx():
     global influx
     influx = not influx
-    influx_mass = 300.0
+    influx_mass = 3.0
+    influx_area = 5
     water_influx = simulator.images['water_influx']
     resolution = simulator.resolution
+    offset = simulator.resolution //2 - influx_area // 2
     if influx:
-        water_influx.set_point1(simulator.resolution // 2, simulator.resolution // 2, influx_mass)
+        for x in range(offset, offset + influx_area + 1):
+            for y in range(offset, offset + influx_area + 1):
+                water_influx.set_point1(x, y, influx_mass)
     else:
         water_influx.fill(0.0)
     simulator.load_image('water_influx')
@@ -126,7 +134,9 @@ base.accept("space", toggle_influx)
 
 # Camera needs some love, too
 #base.cam.set_pos(0, -1, 4)
-base.cam.set_pos(2, -2, 2)
+#base.cam.set_pos(2, -2, 2)
+#base.cam.set_pos(1, -3, 2)
+base.cam.set_pos(1.5, -1.5, 0.5)
 base.cam.look_at(0, 0, 0.25)
 base.set_frame_rate_meter(True)
 base.run()

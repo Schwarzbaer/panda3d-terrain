@@ -18,9 +18,11 @@ in vec2 texcoord;
 uniform mat4 p3d_ModelViewProjectionMatrix;
 uniform sampler2D heightA;
 uniform sampler2D heightB;
+uniform sampler2D normals;
 
 out vec2 uv;
 out float height;
+out vec4 normal;
 
 void main()  {
   uv = texcoord;
@@ -30,6 +32,7 @@ void main()  {
   vec4 finalPos = vertex;
   finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
+  normal = texture(normals, texcoord);
 }
 """
 heightmap_shader = """
@@ -40,9 +43,11 @@ in vec2 texcoord;
 
 uniform mat4 p3d_ModelViewProjectionMatrix;
 uniform sampler2D heightA;
+//uniform sampler2D normals;
 
 out vec2 uv;
 out float height;
+//out vec4 normal;
 
 void main()  {
   uv = texcoord;
@@ -50,6 +55,7 @@ void main()  {
   vec4 finalPos = vertex;
   finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
+  //normal = texture(normals, texcoord);
 }
 """
 terrain_shader = """
@@ -57,6 +63,7 @@ terrain_shader = """
 
 in vec2 uv;
 in float height;
+//in vec4 normal;
 
 layout(location = 0) out vec4 diffuseColor;
 
@@ -72,13 +79,14 @@ water_shader = """
 
 in vec2 uv;
 in float height;
+in vec4 normal;
 
 layout(location = 0) out vec4 diffuseColor;
 
 vec4 blue = vec4(0.0, 0.0, 1.0, 1.0);
 
 void main () {
-  diffuseColor = blue;
+  diffuseColor = normal;
 }
 """
 
@@ -129,6 +137,7 @@ def make_terrain(simulator, resolution=None):
     visual_terrain_shader.set_filename(Shader.ST_none, 'terrain')
     visual_terrain_np.set_shader(visual_terrain_shader)
     visual_terrain_np.set_shader_input("heightA", simulator.textures['terrain_height'])
+    #visual_terrain_np.set_shader_input("normals", simulator.textures['water_normal_map'])
     
     
     visual_water_np = make_model(resolution)
@@ -141,6 +150,7 @@ def make_terrain(simulator, resolution=None):
     visual_water_np.set_shader(visual_water_shader)
     visual_water_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     visual_water_np.set_shader_input("heightB", simulator.textures['water_height'])
+    visual_water_np.set_shader_input("normals", simulator.textures['water_normal_map'])
     
     
     visual_water_np.reparent_to(visual_terrain_np)

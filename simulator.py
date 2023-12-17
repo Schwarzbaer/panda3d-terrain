@@ -167,14 +167,55 @@ void main() {
   imageStore(heightBase, coord, imageLoad(heightNew, coord));
 }
 """
+shader_sources['calculate_water_normals'] = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+layout(r16f) uniform readonly image2D terrainHeight;
+layout(r16f) uniform readonly image2D waterHeight;
+layout(rgba16f) uniform writeonly image2D normals;
+
+float totalHeight(ivec2 uv) {
+  return imageLoad(terrainHeight, uv).x + imageLoad(waterHeight, uv).x;
+}
+
+vec3 sobel(ivec2 uv) {
+  // 0/2  1/2  2/2
+  // 0/1       2/1
+  // 0/0  1/0  2/0
+  float h00 = totalHeight(uv + ivec2(-1, -1));
+  float h01 = totalHeight(uv + ivec2(-1,  0));
+  float h02 = totalHeight(uv + ivec2(-1,  1));
+  float h10 = totalHeight(uv + ivec2( 0, -1));
+  float h12 = totalHeight(uv + ivec2( 0,  1));
+  float h20 = totalHeight(uv + ivec2( 1, -1));
+  float h21 = totalHeight(uv + ivec2( 1,  0));
+  float h22 = totalHeight(uv + ivec2( 1,  1));
+
+  float x = atan(( h00 + 2*h01 + h02 - h20 - 2*h21 - h22));
+  float y = atan(( h00 + 2*h10 + h20 - h02 - 2*h12 - h22));
+  float z = 1.0 - x * x - y * y;
+  vec3 normal = vec3((x + 1.0) / 2.0, (y + 1.0) / 2.0, (z + 1.0) / 2.0);
+  return normal;
+}
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  int gridSize = imageSize(waterHeight).x;
+  vec4 normal = vec4(sobel(coord), 1.0);
+  imageStore(normals, coord, normal);
+}
+"""
 
 
 hyper_model_params = dict(
-    add_water         = [],
-    calculate_outflux = ['boundary_condition'],
-    apply_crossflux   = ['boundary_condition'],
-    evaporate         = [],
-    update_main_data  = [],
+    add_water               = [],
+    calculate_outflux       = ['boundary_condition'],
+    apply_crossflux         = ['boundary_condition'],
+    evaporate               = [],
+    update_main_data        = [],
+    calculate_water_normals = [], # FIXME: Boundary condition
 )
 default_hyper_model = dict(
     boundary_condition=BoundaryConditions.CLOSED, # Open outflow, wall, tiling
@@ -182,11 +223,12 @@ default_hyper_model = dict(
 
 
 model_params = dict(
-    add_water         = ['dt'],
-    calculate_outflux = ['dt', 'pipeCoefficient', 'cellDistance'],
-    apply_crossflux   = ['dt', 'cellDistance'],
-    evaporate         = ['dt', 'evaporationConstant'],
-    update_main_data  = [],
+    add_water               = ['dt'],
+    calculate_outflux       = ['dt', 'pipeCoefficient', 'cellDistance'],
+    apply_crossflux         = ['dt', 'cellDistance'],
+    evaporate               = ['dt', 'evaporationConstant'],
+    update_main_data        = [],
+    calculate_water_normals = [],
 )
 water_flow_model = (
     [
@@ -197,6 +239,7 @@ water_flow_model = (
         ('water_crossflux', 4),
         ('water_height_after_crossflux', 1),
         ('water_height_after_evaporation', 1),
+        ('water_normal_map', 4),
     ],
     {
         'add_water': dict(
@@ -221,6 +264,11 @@ water_flow_model = (
         'update_main_data': dict(
             heightNew='water_height_after_evaporation',
             heightBase='water_height',
+        ),
+        'calculate_water_normals': dict(
+            terrainHeight='terrain_height',
+            waterHeight='water_height',
+            normals='water_normal_map',
         ),
     },
 )
@@ -306,7 +354,8 @@ class Simulation:
         shader_source = shader_template.render(**render_params)
         if self.dump_shaders:
             print(f"----- {name} -----")
-            print(shader_source)
+            for line_num, line in enumerate(shader_source.split('\n')):
+                print(f"{line_num + 1 : 04d} {line}")
         compute_shader = Shader.make_compute(
             Shader.SL_GLSL,
             shader_source,

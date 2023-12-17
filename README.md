@@ -61,14 +61,18 @@ TODO
 
 ### Small nice-to-haves
 
-* Dump final shader source
 * Command line args
   * hypermodel
-  * Did I miss others?
 
 
 ### Icebox
 
+* Hyper parameters
+  * Initial data
+    * Zero (current)
+    * Generator shaders
+    * Loaded images
+  * Workgroup size
 * Simulation model
   * Velocity field
   * Erosion-deposition, lateral sediment transport
@@ -152,3 +156,11 @@ Papers
     * DONE: Evaporate water
 * "Fast Hydraulic and Thermal Erosion on GPU": http://diglib.eg.org/bitstream/handle/10.2312/EG2011.short.057-060/057-060.pdf?sequence=1
 * "Hydraulic Erosion Simulation on the GPU for 3D terrains": https://www.diva-portal.org/smash/get/diva2:1646074/FULLTEXT01.pdf
+* "Large Scale Terrain Generation from Tectonic Uplift and Fluvial Erosion": https://inria.hal.science/hal-01262376/document
+* "Procedural Modeling of the Great Barrier Reef": https://easychair.org/publications/preprint_download/qLmc
+* "Desertscape Simulation": https://www.researchgate.net/profile/Axel-Paris/publication/335488341_Desertscape_Simulation/links/5db7f667a6fdcc2128e8d1d9/Desertscape-Simulation.pdf
+  Adds a sand layer and a vegetation layer. Reproduces realistic dune formations.
+* "Procedural Generation of Large-Scale Forests Using a Graph-Based Neutral Landscape Model": https://media.proquest.com/media/hms/PFT/1/Ijdn4?_s=ANyDa8athS4X9z8tNeVbdzsdiSQ%3D
+  First skim: Segments a grip-based landscape into patches of wood species growth.
+* "AutoBiomes: procedural generation of multi-biome landscapes": https://d-nb.info/121797170X/34
+  Uses a climate simulation, then derives biomes from the results.

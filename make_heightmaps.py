@@ -34,3 +34,7 @@ def perlin(image):
     def height(x, y):
         return (noise_generator.noise(x, y) / 2.0 + 0.5) * 0.5
     fill_data(image, height)
+
+
+def half(image):
+    image.fill(0.25)

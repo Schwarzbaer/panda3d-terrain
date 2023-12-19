@@ -164,3 +164,6 @@ Papers
   First skim: Segments a grip-based landscape into patches of wood species growth.
 * "AutoBiomes: procedural generation of multi-biome landscapes": https://d-nb.info/121797170X/34
   Uses a climate simulation, then derives biomes from the results.
+* "Efficient Animation of Water Flow on Irregular Terrains": http://www-cg.cis.iwate-u.ac.jp/lab/graphite06.pdf
+* "Forming Terrains by Glacial Erosion": https://inria.hal.science/hal-04090644/file/Sigg23_Glacial_Erosion__author.pdf
+* "Interactive Generation of Time-evolving, Snow-Covered Landscapes with Avalanches": https://inria.hal.science/hal-01736971/file/interactive-generation-time.pdf

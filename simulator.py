@@ -193,16 +193,17 @@ vec3 sobel(ivec2 uv) {
   float h21 = totalHeight(uv + ivec2( 1,  0));
   float h22 = totalHeight(uv + ivec2( 1,  1));
 
-  float x = atan(( h00 + 2*h01 + h02 - h20 - 2*h21 - h22));
-  float y = atan(( h00 + 2*h10 + h20 - h02 - 2*h12 - h22));
-  float z = 1.0 - x * x - y * y;
-  vec3 normal = vec3((x + 1.0) / 2.0, (y + 1.0) / 2.0, (z + 1.0) / 2.0);
+  float x = sin(atan((h00 + 2*h01 + h02 - h20 - 2*h21 - h22)));
+  float y = sin(atan((h00 + 2*h10 + h20 - h02 - 2*h12 - h22)));
+  float z = sqrt(1.0 - x * x - y * y);
+  vec3 normal = vec3(x, y, z);
+  normal *= 0.5;
+  normal += 0.5;
   return normal;
 }
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  int gridSize = imageSize(waterHeight).x;
   vec4 normal = vec4(sobel(coord), 1.0);
   imageStore(normals, coord, normal);
 }
@@ -215,7 +216,7 @@ hyper_model_params = dict(
     apply_crossflux         = ['boundary_condition'],
     evaporate               = [],
     update_main_data        = [],
-    calculate_water_normals = [], # FIXME: Boundary condition
+    calculate_water_normals = ['boundary_condition'],
 )
 default_hyper_model = dict(
     boundary_condition=BoundaryConditions.CLOSED, # Open outflow, wall, tiling

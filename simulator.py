@@ -15,6 +15,18 @@ class BoundaryConditions(enum.Enum):
     WRAPPING = 3
 
 
+boundary_code = """
+ivec2 wrapCoord(ivec2 resolution, ivec2 coord) {
+{% if boundary_condition == BoundaryConditions.WRAPPING %}
+    return ivec2(mod(coord, resolution));
+{% elif boundary_condition == BoundaryConditions.CLOSED %}
+    return max(ivec2(0, 0), min(resolution, coord));
+{% else %}
+    return ivec2(coordIn);
+{% endif %}
+}
+"""
+    
 shader_sources = {}
 shader_sources['add_water'] = """
 #version 430
@@ -32,6 +44,8 @@ void main() {
   imageStore(heightOut, coord, newHeight);
 }
 """
+
+
 shader_sources['calculate_outflux'] = """
 #version 430
 
@@ -44,34 +58,25 @@ layout(r16f) uniform readonly image2D terrainHeight;
 layout(r16f) uniform readonly image2D waterHeight;
 layout(rgba16f) uniform image2D waterCrossflux;
 
-const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
-
-{% if boundary_condition == BoundaryConditions.WRAPPING %}
-ivec2 wrapCoord(ivec2 coordIn) {
-    return ivec2(mod(coordIn, imageSize(waterCrossflux)));
-}
-{% else %}
-ivec2 wrapCoord(ivec2 coordIn) {
-    return ivec2(coordIn);
-}
-{% endif %}
+""" + boundary_code + """
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
   vec4 localTerrainHeight = vec4(imageLoad(terrainHeight, coord).x);
   vec4 localWaterHeight = vec4(imageLoad(waterHeight, coord).x);
   vec4 localTotalHeight = localTerrainHeight + localWaterHeight;
+  ivec2 resolution = imageSize(terrainHeight);
   vec4 neighborTerrainHeight = vec4(
-    imageLoad(terrainHeight, wrapCoord(coord + ivec2(-1,  0))).x,
-    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 1,  0))).x,
-    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 0, -1))).x,
-    imageLoad(terrainHeight, wrapCoord(coord + ivec2( 0,  1))).x
+    imageLoad(terrainHeight, wrapCoord(resolution, coord + ivec2(-1,  0))).x,
+    imageLoad(terrainHeight, wrapCoord(resolution, coord + ivec2( 1,  0))).x,
+    imageLoad(terrainHeight, wrapCoord(resolution, coord + ivec2( 0, -1))).x,
+    imageLoad(terrainHeight, wrapCoord(resolution, coord + ivec2( 0,  1))).x
   );
   vec4 neighborWaterHeight = vec4(
-    imageLoad(waterHeight, wrapCoord(coord + ivec2(-1,  0))).x,
-    imageLoad(waterHeight, wrapCoord(coord + ivec2( 1,  0))).x,
-    imageLoad(waterHeight, wrapCoord(coord + ivec2( 0, -1))).x,
-    imageLoad(waterHeight, wrapCoord(coord + ivec2( 0,  1))).x
+    imageLoad(waterHeight, wrapCoord(resolution, coord + ivec2(-1,  0))).x,
+    imageLoad(waterHeight, wrapCoord(resolution, coord + ivec2( 1,  0))).x,
+    imageLoad(waterHeight, wrapCoord(resolution, coord + ivec2( 0, -1))).x,
+    imageLoad(waterHeight, wrapCoord(resolution, coord + ivec2( 0,  1))).x
   );
   vec4 neighborTotalHeight = neighborTerrainHeight + neighborWaterHeight;
   vec4 deltaHeight = localTotalHeight - neighborTotalHeight;
@@ -111,24 +116,23 @@ layout(r16f) uniform readonly image2D heightIn;
 layout(rgba16f) uniform readonly image2D waterCrossflux;
 layout(r16f) uniform writeonly image2D heightOut;
 
-const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
-
 {% if boundary_condition == BoundaryConditions.WRAPPING %}
-ivec2 wrapCoord(ivec2 coordIn) {
-    return ivec2(mod(coordIn, imageSize(waterCrossflux)));
+ivec2 wrapCoord(ivec2 resolution, ivec2 coord) {
+    return ivec2(mod(coord, resolution));
 }
 {% else %}
-ivec2 wrapCoord(ivec2 coordIn) {
-    return ivec2(coordIn);
+ivec2 wrapCoord(ivec2 resolution, ivec2 coord) {
+    return ivec2(coord);
 }
 {% endif %}
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  float inflowLeft   = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[0])).g;
-  float inflowRight  = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[1])).r;
-  float inflowBottom = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[2])).a;
-  float inflowTop    = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[3])).b;
+  ivec2 resolution = imageSize(waterCrossflux);
+  float inflowLeft   = imageLoad(waterCrossflux, wrapCoord(resolution, coord + ivec2(-1,  0))).g;
+  float inflowRight  = imageLoad(waterCrossflux, wrapCoord(resolution, coord + ivec2( 1,  0))).r;
+  float inflowBottom = imageLoad(waterCrossflux, wrapCoord(resolution, coord + ivec2( 0, -1))).a;
+  float inflowTop    = imageLoad(waterCrossflux, wrapCoord(resolution, coord + ivec2( 0,  1))).b;
   float totalInflow = inflowLeft + inflowRight + inflowBottom + inflowTop;
   vec4 outflows = imageLoad(waterCrossflux, coord);
   float totalOutflow = outflows.r + outflows.g + outflows.b + outflows.a;
@@ -176,6 +180,8 @@ layout(r16f) uniform readonly image2D terrainHeight;
 layout(r16f) uniform readonly image2D waterHeight;
 layout(rgba16f) uniform writeonly image2D normals;
 
+""" + boundary_code + """
+
 float totalHeight(ivec2 uv) {
   return imageLoad(terrainHeight, uv).x + imageLoad(waterHeight, uv).x;
 }
@@ -193,16 +199,17 @@ vec3 sobel(ivec2 uv) {
   float h21 = totalHeight(uv + ivec2( 1,  0));
   float h22 = totalHeight(uv + ivec2( 1,  1));
 
-  float x = atan(( h00 + 2*h01 + h02 - h20 - 2*h21 - h22));
-  float y = atan(( h00 + 2*h10 + h20 - h02 - 2*h12 - h22));
-  float z = 1.0 - x * x - y * y;
-  vec3 normal = vec3((x + 1.0) / 2.0, (y + 1.0) / 2.0, (z + 1.0) / 2.0);
+  float x = sin(atan((h00 + 2*h01 + h02 - h20 - 2*h21 - h22)));
+  float y = sin(atan((h00 + 2*h10 + h20 - h02 - 2*h12 - h22)));
+  float z = sqrt(1.0 - x * x - y * y);
+  vec3 normal = vec3(x, y, z);
+  normal *= 0.5;
+  normal += 0.5;
   return normal;
 }
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  int gridSize = imageSize(waterHeight).x;
   vec4 normal = vec4(sobel(coord), 1.0);
   imageStore(normals, coord, normal);
 }
@@ -215,7 +222,7 @@ hyper_model_params = dict(
     apply_crossflux         = ['boundary_condition'],
     evaporate               = [],
     update_main_data        = [],
-    calculate_water_normals = [], # FIXME: Boundary condition
+    calculate_water_normals = ['boundary_condition'],
 )
 default_hyper_model = dict(
     boundary_condition=BoundaryConditions.CLOSED, # Open outflow, wall, tiling

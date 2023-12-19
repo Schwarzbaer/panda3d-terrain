@@ -38,3 +38,12 @@ def perlin(image):
 
 def half(image):
     image.fill(0.25)
+
+
+def block(image, phases=2):
+    def height(x, y):
+        if (0.33 < x < 0.66) and (0.33 < y < 0.66):
+            return 0.5
+        else:
+            return 0.0
+    fill_data(image, height)

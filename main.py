@@ -1,7 +1,10 @@
+import random
+
 from argparse import ArgumentParser
 
 from panda3d.core import load_prc_file_data
 from panda3d.core import PStatClient
+from panda3d.core import KeyboardButton
 
 from direct.showbase.ShowBase import ShowBase
 
@@ -64,7 +67,7 @@ if args.pipe is not None:
 if args.shaders:
     simulator_kwargs['dump_shaders'] = True
 simulator = Simulation(
-    hyper_model=dict(boundary_condition=BoundaryConditions.CLOSED),  # OPEN, CLOSED, or WRAPPING
+    hyper_model=dict(boundary_condition=BoundaryConditions.WRAPPING),  # OPEN, CLOSED, or WRAPPING
     **simulator_kwargs,
 )
 if args.memory:
@@ -74,6 +77,7 @@ if args.memory:
 make_heightmaps.perlin(simulator.images['terrain_height'])
 #make_heightmaps.funnel(simulator.images['terrain_height'])
 #make_heightmaps.sine_hills(simulator.images['terrain_height'], phases=1)
+#make_heightmaps.block(simulator.images['terrain_height'])
 #make_heightmaps.half(simulator.images['terrain_height'])
 simulator.load_image('terrain_height')
 #make_heightmaps.half(simulator.images['water_height'])
@@ -111,32 +115,58 @@ simulator.attach_compute_nodes(terrain)
 #simulator.attach_compute_nodes(base.render)
 
 
+def spring(image):
+    influx_mass = 3.0
+    influx_randomness = 1.0
+    influx_area = 5
+    resolution = simulator.resolution
+    offset = simulator.resolution //2 - influx_area // 2
+    for x in range(offset, offset + influx_area + 1):
+        for y in range(offset, offset + influx_area + 1):
+            mass = influx_mass + (random.random() - 0.5) * influx_randomness
+            image.set_point1(x, y, mass)
+
+
+def equal_rain(image):
+    image.fill(0.01)
+
+
 # And we want to stop the influx of water, and begin evaporation.
 global influx
 influx = False
 def toggle_influx():
     global influx
     influx = not influx
-    influx_mass = 3.0
-    influx_area = 5
-    water_influx = simulator.images['water_influx']
-    resolution = simulator.resolution
-    offset = simulator.resolution //2 - influx_area // 2
+    image = simulator.images['water_influx']
     if influx:
-        for x in range(offset, offset + influx_area + 1):
-            for y in range(offset, offset + influx_area + 1):
-                water_influx.set_point1(x, y, influx_mass)
+        spring(image)
+        #equal_rain(image)
     else:
-        water_influx.fill(0.0)
+        image.fill(0.0)
     simulator.load_image('water_influx')
 base.accept("space", toggle_influx)
+def continual_influx_regeneration():
+    def mytask(task):
+        spring(simulator.images['water_influx'])
+        simulator.load_image('water_influx')
+        return task.cont
+    base.task_mgr.add(mytask)
+base.accept("g", continual_influx_regeneration)
 
 
 # Camera needs some love, too
 #base.cam.set_pos(0, -1, 4)
-#base.cam.set_pos(2, -2, 2)
+base.cam.set_pos(0, -2, 2)
+def rotate_camera(task):
+    if base.mouseWatcherNode.has_mouse():
+        if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('a')):
+            base.camera.set_h(base.camera.get_h() - 60.0 * globalClock.dt)
+        if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('d')):
+            base.camera.set_h(base.camera.get_h() + 60.0 * globalClock.dt)
+    return task.cont
+base.task_mgr.add(rotate_camera)
 #base.cam.set_pos(1, -3, 2)
-base.cam.set_pos(1.5, -1.5, 0.5)
+#base.cam.set_pos(1.5, -1.5, 0.5)
 base.cam.look_at(0, 0, 0.25)
 base.set_frame_rate_meter(True)
 base.run()

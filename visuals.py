@@ -22,7 +22,7 @@ uniform sampler2D normals;
 
 out vec2 uv;
 out float height;
-out vec4 normal;
+out vec3 normal;
 
 void main()  {
   uv = texcoord;
@@ -32,7 +32,7 @@ void main()  {
   vec4 finalPos = vertex;
   finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
-  normal = texture(normals, texcoord);
+  normal = texture(normals, texcoord).xyz * 2.0 - 1.0;
 }
 """
 heightmap_shader = """
@@ -79,14 +79,17 @@ water_shader = """
 
 in vec2 uv;
 in float height;
-in vec4 normal;
+in vec3 normal;
 
 layout(location = 0) out vec4 diffuseColor;
 
-vec4 blue = vec4(0.0, 0.0, 1.0, 1.0);
+vec3 light_direction = normalize(vec3(0.2, 0.2, 1.0));
+vec3 lightColor = vec3(1.0, 1.0, 1.0);
+vec3 waterColor = vec3(0.5, 0.5, 1.0);
 
 void main () {
-  diffuseColor = normal;
+  float lambertian_diffusion_weight = max(0.0, dot(light_direction, normal));
+  diffuseColor = vec4(waterColor * lightColor * lambertian_diffusion_weight, 1.0);
 }
 """
 

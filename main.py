@@ -1,6 +1,7 @@
 import random
 
 from argparse import ArgumentParser
+from argparse import RawDescriptionHelpFormatter
 
 from panda3d.core import load_prc_file_data
 from panda3d.core import PStatClient
@@ -18,20 +19,28 @@ import make_heightmaps
 
 parser = ArgumentParser(
     description="Hydraulics simulation for Panda3D.",
-    epilog="",
+    epilog='\n'.join(
+        [
+            "Default values are:",
+            "Resolution      : 256",
+            "Boundary        : open",
+            "Evaporation     : 0.05",
+            "Pipe coefficient: 98.1 (1g, 10m^2 diameter)",
+            "Timestep        : realtime",
+        ],
+    ),
+    formatter_class=RawDescriptionHelpFormatter,
 )
 parser.add_argument(
     '-r',
     '--resolution',
     type=int,
-    default=256,
     help='Side length of the simulation in cells.',
 )
 parser.add_argument(
     '-e',
     '--evaporation',
     type=float,
-    default=0.05,
     help='Fraction of of total water in a cell that is evaporated in a second.',
 )
 parser.add_argument(
@@ -62,7 +71,6 @@ parser.add_argument(
     '-b',
     '--boundary',
     choices=['open', 'closed', 'wrap'],
-    default='open',
     help="Select the map's boundary type.",
 )
 args = parser.parse_args()
@@ -159,6 +167,7 @@ class Interface:
         base.accept("f", self.toggle_fountain)
         base.accept("r", self.toggle_rain)
         # Camera
+        base.cam.node().get_lens().near = 0.001
         base.camera.set_pos(0, 0, 0.25)
         base.camera.set_p(-30)
         base.cam.set_pos(0, -3, 0)
@@ -169,7 +178,7 @@ class Interface:
 
     def setup_help_text(self):
         self.help_text_wasd = OnscreenText(
-            text="WASD to rotate the terrain.",
+            text="WASD to rotate the terrain, QE to zoom.",
             parent=base.a2dTopLeft,
             align=TextNode.ALeft,
             pos=(0.01, -0.05),
@@ -183,7 +192,7 @@ class Interface:
             scale=0.05,
         )
         self.help_text_rain = OnscreenText(
-            text=f"R to change rain level (currently {self.rain})",
+            text=f"R to change rain level (currently {self.rain} / 3)",
             parent=base.a2dTopLeft,
             align=TextNode.ALeft,
             pos=(0.01, -0.15),
@@ -201,7 +210,7 @@ class Interface:
 
     def toggle_rain(self):
         self.rain = (self.rain + 1) % 4
-        self.help_text_rain['text'] = f"R to change rain level (currently {self.rain})"
+        self.help_text_rain['text'] = f"R to change rain level (currently {self.rain} / 3)"
 
     def update_influx(self, task):
         image = self.simulator.images['water_influx']
@@ -216,6 +225,7 @@ class Interface:
         if base.mouseWatcherNode.has_mouse():
             h = base.camera.get_h()
             p = base.camera.get_p()
+            d = -base.cam.get_y()
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('a')):
                 h += 60.0 * globalClock.dt
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('d')):
@@ -224,8 +234,13 @@ class Interface:
                 p = max(-90.0, p - 30.0 * globalClock.dt)
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('s')):
                 p = min(0.0, p + 30.0 * globalClock.dt)
+            if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('q')):
+                d -= 1.05 * globalClock.dt
+            if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('e')):
+                d += 1.05 * globalClock.dt
             base.camera.set_h(h)
             base.camera.set_p(p)
+            base.cam.set_y(-d)
         return task.cont
 
 

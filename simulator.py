@@ -233,7 +233,7 @@ hyper_model_params = dict(
     calculate_water_normals   = ['boundary_condition'],
 )
 default_hyper_model = dict(
-    boundary_condition=BoundaryConditions.CLOSED,
+    boundary_condition=BoundaryConditions.OPEN,
 )
 
 
@@ -304,7 +304,7 @@ class Simulation:
             dump_shaders=False,
             cell_distance=1.0,
             pipe_coefficient=98.1,
-            evaporation_constant=0.01,
+            evaporation_constant=0.05,
             terrain_height=None,
             water_height=None,
             water_influx=None,

@@ -1,7 +1,42 @@
 Terrain for Panda3D
 ===================
 
-Just throwing some academic papers at the GPU to see what sticks.
+Just throwing some academic papers at the GPU to see what sticks. The
+goal is to have a tool to generate and render beautiful natural
+landscapes.
+
+Current state: Alpha
+* The lighting model is Lambertian diffusion with a static sun vector,
+  the colors code-defined. It's basically the simplest hacked-together
+  renderer imaginable.
+* The environment model is trivial.
+  * There is terrain generated from Perlin noise.
+  * There is flowing water with rain and a fountain as a source.
+* The simulation code is not optimized one bit.
+
+
+Installation
+------------
+
+Requirements: `pip install panda3d Jinja2`
+
+For this project itself... Clone the repo and addit to your virtualenv,
+I guess? I haven't packaged anything yet.
+
+
+Usage
+-----
+
+`python main.py`
+
+There are several options, documented in `python main.py -h`.
+
+The turbulence in frame time (`globalClock.dt` in Panda3D) introduces
+turbulence in the simulation, so if you want a simulation that converges
+on a mostly steady state, it is recommended to set the timestep to
+approximate your framerate (assuming that you are running at a
+resolution at which the simulation reaches realtime performance), e.g.
+`python main.py -t 0.01666` for 60 frames per second.
 
 
 Current Model
@@ -23,6 +58,8 @@ Current Model
   * `water_crossflux`
   * `water_height_after_crossflux`
   * `water_height_after_evaporation`
+  * `terrain_normal_map`: Surface normals
+  * `water_normal_map`: Surface normals
 * Scalar model parameters
   * `cell_distance`: Distance between centers of neighboring cells, default `1.0`
   * `pipe_coefficient`:  `gravity g * pipe cross area A / pipe length l`, default `98.1`
@@ -54,19 +91,28 @@ TODO
 ### Current hot topics
 
 * Aesthetics
-  * Water
-  * Terrain
+  * Specular highlights
+  * Fake SSS based on water depth
 * Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
 
 
 ### Small nice-to-haves
 
-* Command line args
-  * hypermodel
+* Simulation model
+  * Velocity field
+  * Erosion-deposition, lateral sediment transport
 
 
 ### Icebox
 
+* Command line parameters
+  * cell_distance
+* Aesthetics
+  * Water
+    * Side walls on closed/wrapped boundary
+    * Waterfall on open boundary
+  * Terrain
+    * Side walls
 * Hyper parameters
   * Initial data
     * Zero (current)
@@ -74,8 +120,6 @@ TODO
     * Loaded images
   * Workgroup size
 * Simulation model
-  * Velocity field
-  * Erosion-deposition, lateral sediment transport
   * More papers
 * Performance
   * Measure, and find the maximum simulation size / optimal workgroup
@@ -87,8 +131,8 @@ TODO
     * set up `shared` array for the work group that is 2 elements larger
       than the workgroup, making a one-element border around it. Preload
       global data into it, and do math. Write output back into global.
+    * Red/Black mode
 * Loading/saving simulations / dumping images
-* Red/Black mode
 * Offline rendering, sidestepping the vsync limit
 * Tiled simulation for offline rendering of super-large worlds
 * Inflow map: R=inflow measured in height of water column, G=inflow by

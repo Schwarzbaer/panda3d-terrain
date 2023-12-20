@@ -159,8 +159,9 @@ class Interface:
         base.accept("f", self.toggle_fountain)
         base.accept("r", self.toggle_rain)
         # Camera
-        base.cam.set_pos(0, -2, 2)
-        base.cam.look_at(0, 0, 0.25)
+        base.camera.set_pos(0, 0, 0.25)
+        base.camera.set_p(-30)
+        base.cam.set_pos(0, -3, 0)
         base.task_mgr.add(self.rotate_camera)
         # GUI
         base.set_frame_rate_meter(True)
@@ -213,14 +214,18 @@ class Interface:
 
     def rotate_camera(self, task):
         if base.mouseWatcherNode.has_mouse():
+            h = base.camera.get_h()
+            p = base.camera.get_p()
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('a')):
-                base.camera.set_h(base.camera.get_h() - 60.0 * globalClock.dt)
+                h += 60.0 * globalClock.dt
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('d')):
-                base.camera.set_h(base.camera.get_h() + 60.0 * globalClock.dt)
+                h -= 60.0 * globalClock.dt
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('w')):
-                base.camera.set_p(base.camera.get_p() - 30.0 * globalClock.dt)
+                p = max(-90.0, p - 30.0 * globalClock.dt)
             if base.mouseWatcherNode.is_button_down(KeyboardButton.ascii_key('s')):
-                base.camera.set_p(base.camera.get_p() + 30.0 * globalClock.dt)
+                p = min(0.0, p + 30.0 * globalClock.dt)
+            base.camera.set_h(h)
+            base.camera.set_p(p)
         return task.cont
 
 

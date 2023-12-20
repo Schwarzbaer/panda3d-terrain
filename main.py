@@ -13,6 +13,7 @@ from direct.gui.OnscreenText import OnscreenText
 
 from simulator import BoundaryConditions
 from simulator import Simulation
+from simulator import default_hyper_model
 from visuals import make_terrain
 import make_heightmaps
 
@@ -85,11 +86,13 @@ if args.pipe is not None:
     model_kwargs['pipe_coefficient'] = args.pipe
 if args.shaders:
     model_kwargs['dump_shaders'] = True
-hyper_model_kwargs = dict(boundary_condition={
-    'open': BoundaryConditions.OPEN,
-    'closed': BoundaryConditions.CLOSED,
-    'wrap': BoundaryConditions.WRAPPING,
-}[args.boundary])
+hyper_model_kwargs = default_hyper_model
+if args.boundary:
+    hyper_model_kwargs['boundary_condition'] = {
+        'open': BoundaryConditions.OPEN,
+        'closed': BoundaryConditions.CLOSED,
+        'wrap': BoundaryConditions.WRAPPING,
+    }[args.boundary]
 simulator = Simulation(
     hyper_model=hyper_model_kwargs,
     **model_kwargs,

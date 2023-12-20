@@ -129,8 +129,15 @@ def spring(image):
             image.set_point1(x, y, mass)
 
 
-def equal_rain(image):
-    image.fill(0.01)
+def rain(image, rain_level):
+    influx_per_drop = 0.5
+    base_drops = 10
+    total_drops = base_drops * rain_level ** 2
+    resolution = simulator.resolution
+    for _ in range(total_drops):
+        x = random.randrange(resolution)
+        y = random.randrange(resolution)
+        image.set_point1(x, y, influx_per_drop)
 
 
 class Interface:
@@ -144,34 +151,62 @@ class Interface:
             print(f"Timestep: realtime")
             base.task_mgr.add(self.set_simulator_dt, sort=-5)
         # Influx
-        self.influx = False
+        self.fountain = False
+        self.rain = 0
         base.task_mgr.add(self.update_influx, sort=-5)
-        base.accept("space", self.toggle_influx)
+        base.accept("space", self.toggle_fountain)
+        base.accept("r", self.toggle_rain)
         # Camera
         base.cam.set_pos(0, -2, 2)
         base.cam.look_at(0, 0, 0.25)
         base.task_mgr.add(self.rotate_camera)
-        # Frame rate meter
+        # GUI
         base.set_frame_rate_meter(True)
+        self.setup_help_text()
+
+    def setup_help_text(self):
+        self.help_text_wasd = OnscreenText(
+            text="WASD to rotate the terrain.",
+            parent=base.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(0.01, -0.05),
+            scale=0.05,
+        )
+        self.help_text_fountain = OnscreenText(
+            text=f"Space to toggle fountain (currently {self.fountain})",
+            parent=base.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(0.01, -0.10),
+            scale=0.05,
+        )
+        self.help_text_rain = OnscreenText(
+            text=f"R to change rain level (currently {self.rain})",
+            parent=base.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(0.01, -0.15),
+            scale=0.05,
+        )
 
     # Set timestep on the simulation / enable wall time steps
     def set_simulator_dt(self, task):
         self.simulator.dt = globalClock.dt
         return task.cont
 
-    def toggle_influx(self):
-        self.influx = not self.influx
-        if not self.influx:
-            image = self.simulator.images['water_influx']
-            image.fill(0.0)
-            self.simulator.load_image('water_influx')
+    def toggle_fountain(self):
+        self.fountain = not self.fountain
+        self.help_text_fountain['text'] = f"F to toggle fountain (currently {self.fountain})"
+
+    def toggle_rain(self):
+        self.rain = (self.rain + 1) % 4
+        self.help_text_rain['text'] = f"R to change rain level (currently {self.rain})"
 
     def update_influx(self, task):
-        if self.influx:
-            image = self.simulator.images['water_influx']
+        image = self.simulator.images['water_influx']
+        image.fill(0.0)
+        if self.fountain:
             spring(image)
-            #equal_rain(image)
-            self.simulator.load_image('water_influx')
+        rain(image, self.rain)
+        self.simulator.load_image('water_influx')
         return task.cont
 
     def rotate_camera(self, task):
@@ -188,18 +223,4 @@ class Interface:
 
 
 Interface(simulator)
-help_text_water = OnscreenText(
-    text='Space to toggle water influx.',
-    parent=base.a2dTopLeft,
-    align=TextNode.ALeft,
-    pos=(0.01, -0.05),
-    scale=0.05,
-)
-help_text_water = OnscreenText(
-    text='WASD to rotate the terrain.',
-    parent=base.a2dTopLeft,
-    align=TextNode.ALeft,
-    pos=(0.01, -0.1),
-    scale=0.05,
-)
 base.run()

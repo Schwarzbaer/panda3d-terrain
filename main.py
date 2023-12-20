@@ -24,12 +24,14 @@ parser.add_argument(
     '-r',
     '--resolution',
     type=int,
+    default=256,
     help='Side length of the simulation in cells.',
 )
 parser.add_argument(
     '-e',
     '--evaporation',
     type=float,
+    default=0.05,
     help='Fraction of of total water in a cell that is evaporated in a second.',
 )
 parser.add_argument(
@@ -60,7 +62,7 @@ parser.add_argument(
     '-b',
     '--boundary',
     choices=['open', 'closed', 'wrap'],
-    default='closed',
+    default='open',
     help="Select the map's boundary type.",
 )
 args = parser.parse_args()
@@ -126,7 +128,7 @@ def spring(image):
     for x in range(offset, offset + influx_area + 1):
         for y in range(offset, offset + influx_area + 1):
             mass = influx_mass + (random.random() - 0.5) * influx_randomness
-            image.set_point1(x, y, mass)
+            image.set_point1(x, y, image.get_point1(x, y) + mass)
 
 
 def rain(image, rain_level):
@@ -137,7 +139,7 @@ def rain(image, rain_level):
     for _ in range(total_drops):
         x = random.randrange(resolution)
         y = random.randrange(resolution)
-        image.set_point1(x, y, influx_per_drop)
+        image.set_point1(x, y, image.get_point1(x, y) + influx_per_drop)
 
 
 class Interface:
@@ -154,7 +156,7 @@ class Interface:
         self.fountain = False
         self.rain = 0
         base.task_mgr.add(self.update_influx, sort=-5)
-        base.accept("space", self.toggle_fountain)
+        base.accept("f", self.toggle_fountain)
         base.accept("r", self.toggle_rain)
         # Camera
         base.cam.set_pos(0, -2, 2)
@@ -173,7 +175,7 @@ class Interface:
             scale=0.05,
         )
         self.help_text_fountain = OnscreenText(
-            text=f"Space to toggle fountain (currently {self.fountain})",
+            text=f"F to toggle fountain (currently {self.fountain})",
             parent=base.a2dTopLeft,
             align=TextNode.ALeft,
             pos=(0.01, -0.10),

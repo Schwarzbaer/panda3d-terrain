@@ -5,8 +5,10 @@ from argparse import ArgumentParser
 from panda3d.core import load_prc_file_data
 from panda3d.core import PStatClient
 from panda3d.core import KeyboardButton
+from panda3d.core import TextNode
 
 from direct.showbase.ShowBase import ShowBase
+from direct.gui.OnscreenText import OnscreenText
 
 from simulator import BoundaryConditions
 from simulator import Simulation
@@ -184,5 +186,20 @@ class Interface:
                 base.camera.set_p(base.camera.get_p() + 30.0 * globalClock.dt)
         return task.cont
 
+
 Interface(simulator)
+help_text_water = OnscreenText(
+    text='Space to toggle water influx.',
+    parent=base.a2dTopLeft,
+    align=TextNode.ALeft,
+    pos=(0.01, -0.05),
+    scale=0.05,
+)
+help_text_water = OnscreenText(
+    text='WASD to rotate the terrain.',
+    parent=base.a2dTopLeft,
+    align=TextNode.ALeft,
+    pos=(0.01, -0.1),
+    scale=0.05,
+)
 base.run()

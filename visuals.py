@@ -9,6 +9,63 @@ from panda3d.core import Geom
 from panda3d.core import GeomNode
 
 
+lambertian_diffusion = """
+vec3 lambertianDiffusion (vec3 surfaceNormal, vec3 surfaceColor, vec3 lightDirection, vec3 lightColor) {
+  float diffusionStrength = max(0.0, dot(lightDirection, surfaceNormal));
+  vec3 diffusion = surfaceColor * lightColor * diffusionStrength;
+  return diffusion;
+}
+"""
+
+
+heightmap_shader = """
+#version 430
+
+in vec4 vertex;
+in vec2 texcoord;
+
+uniform mat4 p3d_ModelViewProjectionMatrix;
+uniform sampler2D heightA;
+uniform sampler2D normals;
+
+out vec2 uv;
+out float height;
+out vec3 normal;
+
+void main()  {
+  uv = texcoord;
+  height = texture(heightA, texcoord).x;
+  vec4 finalPos = vertex;
+  finalPos.z = height;
+  gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
+  normal = texture(normals, texcoord).xyz * 2.0 - 1.0;
+}
+"""
+terrain_shader = """
+#version 430
+
+in vec2 uv;
+in float height;
+in vec3 normal;
+
+layout(location = 0) out vec4 diffuseColor;
+
+vec3 green = vec3(0.0, 1.0, 0.0);
+vec3 gray = vec3(0.5, 0.5, 0.5);
+
+vec3 light_direction = normalize(vec3(0.2, 0.2, 1.0));
+vec3 lightColor = vec3(1.0, 1.0, 1.0);
+vec3 waterColor = vec3(0.5, 0.5, 1.0);
+
+"""+lambertian_diffusion+"""
+
+void main () {
+  vec3 terrainBaseColor = mix(green, gray, height * 2.0);
+  diffuseColor = vec4(lambertianDiffusion(normal, terrainBaseColor, light_direction, lightColor), 1.0);
+}
+"""
+
+
 double_heightmap_shader = """
 #version 430
 
@@ -35,45 +92,6 @@ void main()  {
   normal = texture(normals, texcoord).xyz * 2.0 - 1.0;
 }
 """
-heightmap_shader = """
-#version 430
-
-in vec4 vertex;
-in vec2 texcoord;
-
-uniform mat4 p3d_ModelViewProjectionMatrix;
-uniform sampler2D heightA;
-//uniform sampler2D normals;
-
-out vec2 uv;
-out float height;
-//out vec4 normal;
-
-void main()  {
-  uv = texcoord;
-  height = texture(heightA, texcoord).x;
-  vec4 finalPos = vertex;
-  finalPos.z = height;
-  gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
-  //normal = texture(normals, texcoord);
-}
-"""
-terrain_shader = """
-#version 430
-
-in vec2 uv;
-in float height;
-//in vec4 normal;
-
-layout(location = 0) out vec4 diffuseColor;
-
-vec4 green = vec4(0.0, 1.0, 0.0, 1.0);
-vec4 gray = vec4(0.5, 0.5, 0.5, 1.0);
-
-void main () {
-  diffuseColor = mix(green, gray, height*2.0);
-}
-"""
 water_shader = """
 #version 430
 
@@ -83,13 +101,15 @@ in vec3 normal;
 
 layout(location = 0) out vec4 diffuseColor;
 
+"""+lambertian_diffusion+"""
+
 vec3 light_direction = normalize(vec3(0.2, 0.2, 1.0));
 vec3 lightColor = vec3(1.0, 1.0, 1.0);
 vec3 waterColor = vec3(0.5, 0.5, 1.0);
 
 void main () {
   float lambertian_diffusion_weight = max(0.0, dot(light_direction, normal));
-  diffuseColor = vec4(waterColor * lightColor * lambertian_diffusion_weight, 1.0);
+  diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
 }
 """
 
@@ -140,7 +160,7 @@ def make_terrain(simulator, resolution=None):
     visual_terrain_shader.set_filename(Shader.ST_none, 'terrain')
     visual_terrain_np.set_shader(visual_terrain_shader)
     visual_terrain_np.set_shader_input("heightA", simulator.textures['terrain_height'])
-    #visual_terrain_np.set_shader_input("normals", simulator.textures['water_normal_map'])
+    visual_terrain_np.set_shader_input("normals", simulator.textures['terrain_normal_map'])
     
     
     visual_water_np = make_model(resolution)

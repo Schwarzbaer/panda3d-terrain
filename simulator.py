@@ -167,19 +167,7 @@ void main() {
   imageStore(heightBase, coord, imageLoad(heightNew, coord));
 }
 """
-shader_sources['calculate_water_normals'] = """
-#version 430
-
-layout (local_size_x=16, local_size_y=16) in;
-
-layout(r16f) uniform readonly image2D terrainHeight;
-layout(r16f) uniform readonly image2D waterHeight;
-layout(rgba16f) uniform writeonly image2D normals;
-
-float totalHeight(ivec2 uv) {
-  return imageLoad(terrainHeight, uv).x + imageLoad(waterHeight, uv).x;
-}
-
+sobel_normals = """
 vec3 sobel(ivec2 uv) {
   // 0/2  1/2  2/2
   // 0/1       2/1
@@ -208,28 +196,55 @@ void main() {
   imageStore(normals, coord, normal);
 }
 """
+shader_sources['calculate_terrain_normals'] = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+layout(r16f) uniform readonly image2D terrainHeight;
+layout(rgba16f) uniform writeonly image2D normals;
+
+float totalHeight(ivec2 uv) {
+  return imageLoad(terrainHeight, uv).x;
+}
+"""+sobel_normals
+shader_sources['calculate_water_normals'] = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+layout(r16f) uniform readonly image2D terrainHeight;
+layout(r16f) uniform readonly image2D waterHeight;
+layout(rgba16f) uniform writeonly image2D normals;
+
+float totalHeight(ivec2 uv) {
+  return imageLoad(terrainHeight, uv).x + imageLoad(waterHeight, uv).x;
+}
+"""+sobel_normals
 
 
 hyper_model_params = dict(
-    add_water               = [],
-    calculate_outflux       = ['boundary_condition'],
-    apply_crossflux         = ['boundary_condition'],
-    evaporate               = [],
-    update_main_data        = [],
-    calculate_water_normals = ['boundary_condition'],
+    add_water                 = [],
+    calculate_outflux         = ['boundary_condition'],
+    apply_crossflux           = ['boundary_condition'],
+    evaporate                 = [],
+    update_main_data          = [],
+    calculate_terrain_normals = ['boundary_condition'],
+    calculate_water_normals   = ['boundary_condition'],
 )
 default_hyper_model = dict(
-    boundary_condition=BoundaryConditions.CLOSED, # Open outflow, wall, tiling
+    boundary_condition=BoundaryConditions.CLOSED,
 )
 
 
 model_params = dict(
-    add_water               = ['dt'],
-    calculate_outflux       = ['dt', 'pipeCoefficient', 'cellDistance'],
-    apply_crossflux         = ['dt', 'cellDistance'],
-    evaporate               = ['dt', 'evaporationConstant'],
-    update_main_data        = [],
-    calculate_water_normals = [],
+    add_water                 = ['dt'],
+    calculate_outflux         = ['dt', 'pipeCoefficient', 'cellDistance'],
+    apply_crossflux           = ['dt', 'cellDistance'],
+    evaporate                 = ['dt', 'evaporationConstant'],
+    update_main_data          = [],
+    calculate_terrain_normals = [],
+    calculate_water_normals   = [],
 )
 water_flow_model = (
     [
@@ -240,6 +255,7 @@ water_flow_model = (
         ('water_crossflux', 4),
         ('water_height_after_crossflux', 1),
         ('water_height_after_evaporation', 1),
+        ('terrain_normal_map', 4),
         ('water_normal_map', 4),
     ],
     {
@@ -265,6 +281,10 @@ water_flow_model = (
         'update_main_data': dict(
             heightNew='water_height_after_evaporation',
             heightBase='water_height',
+        ),
+        'calculate_terrain_normals': dict(
+            terrainHeight='terrain_height',
+            normals='terrain_normal_map',
         ),
         'calculate_water_normals': dict(
             terrainHeight='terrain_height',

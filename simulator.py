@@ -150,6 +150,42 @@ void main() {
   imageStore(waterVelocity, coord, vec4(velocity, 0.0, 0.0));
 }
 """
+shader_sources['erode_deposit'] = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+uniform float dt;
+uniform float sedimentCapacity;
+uniform float erosionCoefficient;
+uniform float sedimentationCoefficient;
+uniform float lowerTiltBound;
+
+layout(r16f) uniform readonly image2D terrainHeightIn;
+layout(r16f) uniform writeonly image2D terrainHeightOut;
+layout(rgba16f) uniform readonly image2D normals;
+layout(rg16f) uniform readonly image2D waterVelocity;
+layout(r16f) uniform readonly image2D sedimentIn;
+layout(r16f) uniform writeonly image2D sedimentOut;
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  float terrain = imageLoad(terrainHeightIn, coord).x;
+  float velocity = imageLoad(waterVelocity, coord).x;
+  float sediment = imageLoad(sedimentIn, coord).x;
+  float tilt = acos(dot(vec3(0.0, 0.0, 1.0), imageLoad(normals, coord).xyz * 2.0 - 1.0));
+
+  float sedimentTransportCapacity = max(lowerTiltBound, sedimentCapacity * sin(tilt) * length(velocity));
+  float deltaCapacity = sediment - sedimentTransportCapacity;
+  float massEroded = max(0.0, deltaCapacity * - 1.0) * erosionCoefficient;
+  float massDeposited = max(0.0, deltaCapacity) * sedimentationCoefficient;
+  float deltaSuspendedMass = (massEroded - massDeposited) * dt;
+
+  imageStore(sedimentOut, coord, vec4(sediment + deltaSuspendedMass, 0.0, 0.0, 0.0));
+  imageStore(terrainHeightOut, coord, vec4(terrain - deltaSuspendedMass));
+
+}
+"""
 shader_sources['evaporate'] = """
 #version 430
 
@@ -166,7 +202,9 @@ void main() {
   imageStore(heightOut, coord, newWaterHeight);
 }
 """
-shader_sources['update_main_data'] = """
+
+
+update_main_data = """
 #version 430
 
 layout (local_size_x=16, local_size_y=16) in;
@@ -179,6 +217,11 @@ void main() {
   imageStore(heightBase, coord, imageLoad(heightNew, coord));
 }
 """
+shader_sources['update_terrain_height'] = update_main_data
+shader_sources['update_water_height'] = update_main_data
+shader_sources['update_sediment'] = update_main_data
+
+
 sobel_normals = """
 vec3 sobel(ivec2 uv) {
   // 0/2  1/2  2/2
@@ -239,8 +282,11 @@ hyper_model_params = dict(
     add_water                 = [],
     calculate_outflux         = ['boundary_condition'],
     apply_crossflux           = ['boundary_condition'],
+    erode_deposit             = [],
     evaporate                 = [],
-    update_main_data          = [],
+    update_terrain_height     = [],
+    update_water_height       = [],
+    update_sediment           = [],
     calculate_terrain_normals = ['boundary_condition'],
     calculate_water_normals   = ['boundary_condition'],
 )
@@ -253,8 +299,11 @@ model_params = dict(
     add_water                 = ['dt'],
     calculate_outflux         = ['dt', 'pipeCoefficient', 'cellDistance'],
     apply_crossflux           = ['dt', 'cellDistance'],
+    erode_deposit             = ['dt', 'sedimentCapacity', 'erosionCoefficient', 'sedimentationCoefficient', 'lowerTiltBound'],
     evaporate                 = ['dt', 'evaporationConstant'],
-    update_main_data          = [],
+    update_terrain_height     = [],
+    update_water_height       = [],
+    update_sediment           = [],
     calculate_terrain_normals = [],
     calculate_water_normals   = [],
 )
@@ -267,6 +316,9 @@ water_flow_model = (
         ('water_crossflux', 4),
         ('water_velocity', 2),
         ('water_height_after_crossflux', 1),
+        ('terrain_height_after_erosion_deposition', 1),
+        ('suspended_sediment', 1),
+        ('suspended_sediment_after_transport', 1),
         ('water_height_after_evaporation', 1),
         ('terrain_normal_map', 4),
         ('water_normal_map', 4),
@@ -288,13 +340,29 @@ water_flow_model = (
             waterVelocity='water_velocity',
             heightOut='water_height_after_crossflux',
         ),
+        'erode_deposit': dict(
+            terrainHeightIn='terrain_height',
+            terrainHeightOut='terrain_height_after_erosion_deposition',
+            normals='terrain_normal_map',
+            waterVelocity='water_velocity',
+            sedimentIn='suspended_sediment',
+            sedimentOut='suspended_sediment_after_transport',
+        ),
         'evaporate': dict(
             heightIn='water_height_after_crossflux',
             heightOut='water_height_after_evaporation',
         ),
-        'update_main_data': dict(
+        'update_terrain_height': dict(
+            heightNew='terrain_height_after_erosion_deposition',
+            heightBase='terrain_height',
+        ),
+        'update_water_height': dict(
             heightNew='water_height_after_evaporation',
             heightBase='water_height',
+        ),
+        'update_sediment': dict(
+            heightNew='suspended_sediment_after_transport',
+            heightBase='suspended_sediment',
         ),
         'calculate_terrain_normals': dict(
             terrainHeight='terrain_height',
@@ -319,6 +387,10 @@ class Simulation:
             cell_distance=1.0,
             pipe_coefficient=98.1,
             evaporation_constant=0.05,
+            sediment_capacity=0.001,
+            erosion_coefficient=0.001,
+            sedimentation_coefficient=0.001,
+            lower_tilt_bound=0.0,
             terrain_height=None,
             water_height=None,
             water_influx=None,
@@ -338,6 +410,10 @@ class Simulation:
         self.cell_distance = cell_distance
         self.pipe_coefficient = pipe_coefficient
         self.evaporation_constant = evaporation_constant
+        self.sediment_capacity = sediment_capacity
+        self.erosion_coefficient = erosion_coefficient
+        self.sedimentation_coefficient = sedimentation_coefficient
+        self.lower_tilt_bound = lower_tilt_bound
 
     def make_map(self, name, channels=1):
         assert channels in [1, 2, 4]
@@ -458,3 +534,39 @@ class Simulation:
     def evaporation_constant(self, value):
         self._evaporation_constant = value
         self.set_shader_param('evaporationConstant', value)
+
+    @property
+    def sediment_capacity(self):
+        return self._sediment_capacity
+
+    @sediment_capacity.setter
+    def sediment_capacity(self, value):
+        self._sediment_capacity = value
+        self.set_shader_param('sedimentCapacity', value)
+
+    @property
+    def erosion_coefficient(self):
+        return self._erosion_coefficient
+
+    @erosion_coefficient.setter
+    def erosion_coefficient(self, value):
+        self._erosion_coefficient = value
+        self.set_shader_param('erosionCoefficient', value)
+
+    @property
+    def sedimentation_coefficient(self):
+        return self._sedimentation_coefficient
+
+    @sedimentation_coefficient.setter
+    def sedimentation_coefficient(self, value):
+        self._sedimentation_coefficient = value
+        self.set_shader_param('sedimentationCoefficient', value)
+
+    @property
+    def lower_tilt_bound(self):
+        return self._lower_tilt_bound
+
+    @lower_tilt_bound.setter
+    def lower_tilt_bound(self, value):
+        self._lower_tilt_bound = value
+        self.set_shader_param('lowerTiltBound', value)

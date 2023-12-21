@@ -101,6 +101,8 @@ TODO
 
 ### Current hot topics
 
+* Refactor simulation model and implementation. Adding a new step to the
+  process should not require touching as many parts of the code.
 * Aesthetics
   * Specular highlights
   * Fake SSS based on water depth
@@ -110,7 +112,11 @@ TODO
 ### Small nice-to-haves
 
 * Command line parameters
-  * cell_distance
+  * cell_distance=1.0
+  * sedimentCapacity=1.0
+  * erosionCoefficient=1.0
+  * sedimentationCoefficient=1.0
+  * lowerTiltBound=0.0
 * Simulation model
   * Velocity field
   * Erosion-deposition, lateral sediment transport
@@ -170,41 +176,12 @@ Papers
     * Erode material from terrain into water, or deposit it
     * Transport sediment through water flow
     * Evaporate water
-  * Map Data
-    * `w`: Water influx rate during this frame
-    * `b`: Terrain height
-    * `d`: Water height
-    * `s`: Suspended sediment amount
-    * `f`: Outflow flux
-    * `v`: Velocity field
-  * Scalar model parameters
-    * `g`: Gravity
-    * `l`: Length of the pipe connecting cells
-    * `A`: Cross-section of the pipe connecting cells
-    * `Ks`: Dissolving constant
-    * `Kd`: Deposition constant
-    * `Ke`: Evaporation constant
-  * Frame parameters
-    * `dt`: time step.
-  * Intermediate Maps
-    * `d1`: Water height after the initial influx
-    * `d2`:
-  * Process
+  * Implementation
     * DONE: Increase water
     * DONE: Compute outflux flow; We treat neighboring cells as if they were connected by pipes.
     * DONE: Update water surface
     * DONE: Update velocity field
-    * Erosion-deposition
-      Note: local tilt angle may require setting a lower bound, otherwise sediment transport capacity will be near zero at low tilt.
-      sediment transport capacity `C` = scaling factor * sin(local tilt angle) * |velocity|
-      if sediment transport capacity > suspended sediment amount:  # add soil to water
-          dissolved amount = Ks * (C - s)
-          new terrain height = b - dissolved amount
-          intermediate sediment amount `s1` = s + dissolved amount
-      else:  # deposit sediment
-          deposited amount = Kd * (s - C)
-          new terrain height = b + deposited amount
-          intermediate sediment amount `s1` = s - deposited amount
+    * DONE: Erosion-deposition
     * Transport sediment
       new suspended sediment amount = s1 at position - uv * dt, interpolating the four nearest neighbors
     * DONE: Evaporate water

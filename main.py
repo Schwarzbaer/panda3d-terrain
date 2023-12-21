@@ -171,7 +171,7 @@ class Interface:
         base.accept("r", self.toggle_rain)
         # Camera
         base.cam.node().get_lens().near = 0.001
-        base.camera.set_pos(0, 0, 0.25)
+        base.camera.set_pos(0, 0, 0)
         base.camera.set_p(-30)
         base.cam.set_pos(0, -3, 0)
         base.task_mgr.add(self.rotate_camera)

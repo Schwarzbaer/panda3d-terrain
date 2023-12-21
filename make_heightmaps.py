@@ -32,7 +32,7 @@ def perlin(image):
     noise_generator = PerlinNoise2() 
     noise_generator.setScale(0.2)
     def height(x, y):
-        return (noise_generator.noise(x, y) / 2.0 + 0.5) * 0.5
+        return (noise_generator.noise(x, y) / 2.0 + 0.5) * 0.5 + 0.5
     fill_data(image, height)
 
 

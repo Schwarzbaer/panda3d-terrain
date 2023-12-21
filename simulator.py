@@ -109,6 +109,7 @@ uniform float dt;
 uniform float cellDistance;
 layout(r16f) uniform readonly image2D heightIn;
 layout(rgba16f) uniform readonly image2D waterCrossflux;
+layout(rg16f) uniform writeonly image2D waterVelocity;
 layout(r16f) uniform writeonly image2D heightOut;
 
 const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
@@ -125,17 +126,28 @@ ivec2 wrapCoord(ivec2 coordIn) {
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
-  float inflowLeft   = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[0])).g;
-  float inflowRight  = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[1])).r;
-  float inflowBottom = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[2])).a;
-  float inflowTop    = imageLoad(waterCrossflux, wrapCoord(coord + deltaCoord[3])).b;
+  float inflowLeft   = imageLoad(waterCrossflux, wrapCoord(coord + ivec2(-1,  0))).g;
+  float inflowRight  = imageLoad(waterCrossflux, wrapCoord(coord + ivec2( 1,  0))).r;
+  float inflowBottom = imageLoad(waterCrossflux, wrapCoord(coord + ivec2( 0, -1))).a;
+  float inflowTop    = imageLoad(waterCrossflux, wrapCoord(coord + ivec2( 0,  1))).b;
   float totalInflow = inflowLeft + inflowRight + inflowBottom + inflowTop;
   vec4 outflows = imageLoad(waterCrossflux, coord);
+
+  // Update water height
   float totalOutflow = outflows.r + outflows.g + outflows.b + outflows.a;
   float deltaVolume = (totalInflow - totalOutflow) * dt;
   float oldWaterHeight = imageLoad(heightIn, coord).x;
   float newWaterHeight = oldWaterHeight + deltaVolume / (cellDistance * cellDistance);
   imageStore(heightOut, coord, vec4(newWaterHeight, 0.0, 0.0, 0.0));
+
+  // Velocity
+  vec2 cellWaterThroughputPerSecond = vec2(
+    inflowLeft + outflows.g - inflowRight - outflows.r,
+    inflowBottom + outflows.a - inflowTop - outflows.b
+  ) * 0.5;
+  float averageWaterHeight = (oldWaterHeight + newWaterHeight) / 2.0;
+  vec2 velocity = cellWaterThroughputPerSecond / (averageWaterHeight * cellDistance);
+  imageStore(waterVelocity, coord, vec4(velocity, 0.0, 0.0));
 }
 """
 shader_sources['evaporate'] = """
@@ -253,6 +265,7 @@ water_flow_model = (
         ('water_influx', 1),
         ('water_height_after_influx', 1),
         ('water_crossflux', 4),
+        ('water_velocity', 2),
         ('water_height_after_crossflux', 1),
         ('water_height_after_evaporation', 1),
         ('terrain_normal_map', 4),
@@ -272,6 +285,7 @@ water_flow_model = (
         'apply_crossflux': dict(
             heightIn='water_height_after_influx',
             waterCrossflux='water_crossflux',
+            waterVelocity='water_velocity',
             heightOut='water_height_after_crossflux',
         ),
         'evaporate': dict(
@@ -326,7 +340,7 @@ class Simulation:
         self.evaporation_constant = evaporation_constant
 
     def make_map(self, name, channels=1):
-        assert channels in [1, 4]
+        assert channels in [1, 2, 4]
         image = PfmFile()
         image.clear(
             x_size=self.resolution,
@@ -335,6 +349,8 @@ class Simulation:
         )
         if channels == 1:
             image.fill(0.0)
+        elif channels == 2:
+            image.fill((0.0, 0.0))
         else:
             image.fill((0.0, 0.0, 0.0, 0.0))
         self.images[name] = image
@@ -350,6 +366,8 @@ class Simulation:
         texture.load(image)
         if image.num_channels == 1:
             texture.set_format(Texture.F_r16)
+        elif image.num_channels == 2:
+            texture.set_format(Texture.F_rg16)
         else:
             texture.set_format(Texture.F_rgba16)
         texture.wrap_u = Texture.WM_clamp

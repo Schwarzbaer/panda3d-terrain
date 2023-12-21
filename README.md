@@ -52,20 +52,31 @@ Current Model
 * Map Data
   * `terrain_height`: Height of the terrain
   * `water_height`: Current height of the water
-  * `water_influx`: Water influx rate to simulate e.g. rain, or springs.
+  * `water_influx`: Water influx rate water column to simulate e.g.
+    rain, or fountains. Values are the water column added per second.
 * Intermediate Maps
   * `water_height_after_influx`
   * `water_crossflux`
+    * r to -u
+    * g to +u
+    * b to -v
+    * a to +v
+  * `water_velocity`
+    * r along u
+    * g along v
   * `water_height_after_crossflux`
   * `water_height_after_evaporation`
-  * `terrain_normal_map`: Surface normals
-  * `water_normal_map`: Surface normals
+  * `terrain_normal_map`: Surface normals in GLSL encoding.
+  * `water_normal_map`: Surface normals in GLSL encoding.
 * Scalar model parameters
-  * `cell_distance`: Distance between centers of neighboring cells, default `1.0`
-  * `pipe_coefficient`:  `gravity g * pipe cross area A / pipe length l`, default `98.1`
+  * `cell_distance`: Distance between centers of neighboring cells;
+     Default `1.0`
+  * `pipe_coefficient`: `gravity g * pipe cross area A / pipe length l`;
+     Default `98.1` (Earth gravity `9.81 m/s**2`, pipe cross area
+     `10 m**2`)
   * `evaporation_constant`: Percentage of water that would evaporate in
     one second if the amount of evaporation was constant. `0.0` for no
-    evaporation. Default `0.01`
+    evaporation. Default `0.05`
 * Frame parameters
   * `dt`: time step. The amount of time for which the simulation will be
     advanced.
@@ -98,15 +109,20 @@ TODO
 
 ### Small nice-to-haves
 
+* Command line parameters
+  * cell_distance
 * Simulation model
   * Velocity field
   * Erosion-deposition, lateral sediment transport
+* Visualization Switcher
+  * Water
+    * Depth
+    * Normals
+    * Light model
 
 
 ### Icebox
 
-* Command line parameters
-  * cell_distance
 * Aesthetics
   * Water
     * Side walls on closed/wrapped boundary
@@ -119,6 +135,7 @@ TODO
     * Generator shaders
     * Loaded images
   * Workgroup size
+  * Data resolution (`r16f` vs. `r32f`)
 * Simulation model
   * More papers
 * Performance
@@ -176,14 +193,7 @@ Papers
     * DONE: Increase water
     * DONE: Compute outflux flow; We treat neighboring cells as if they were connected by pipes.
     * DONE: Update water surface
-    * Update velocity field
-      Consider only vertical flow.
-      `u` / `v` are velocity in X / Y direction
-      For X and Y direction separately:
-      * delta Water `dWX` = sum up the delta flows with the neighbors.
-      * equation: `dWX` = distance Y (???) * (average of `d1` and `d2`) * u
-      * derive u (and v accordingly for `dWY`).
-      For simulation to be stable, dt * u/v velocity <= distance to neighbor
+    * DONE: Update velocity field
     * Erosion-deposition
       Note: local tilt angle may require setting a lower bound, otherwise sediment transport capacity will be near zero at low tilt.
       sediment transport capacity `C` = scaling factor * sin(local tilt angle) * |velocity|
@@ -211,3 +221,5 @@ Papers
 * "Efficient Animation of Water Flow on Irregular Terrains": http://www-cg.cis.iwate-u.ac.jp/lab/graphite06.pdf
 * "Forming Terrains by Glacial Erosion": https://inria.hal.science/hal-04090644/file/Sigg23_Glacial_Erosion__author.pdf
 * "Interactive Generation of Time-evolving, Snow-Covered Landscapes with Avalanches": https://inria.hal.science/hal-01736971/file/interactive-generation-time.pdf
+* "Waterfall Simulation with Spray Cloud in different Environments": https://www.jstage.jst.go.jp/article/artsci/15/3/15_111/_pdf
+* "Interactive Procedural Modelling of Coherent Waterfall Scenes": https://inria.hal.science/hal-01095858/file/waterfall.pdf

@@ -76,10 +76,12 @@ uniform mat4 p3d_ModelViewProjectionMatrix;
 uniform sampler2D heightA;
 uniform sampler2D heightB;
 uniform sampler2D normals;
+uniform sampler2D velocities;
 
 out vec2 uv;
 out float height;
 out vec3 normal;
+out vec2 velocity;
 
 void main()  {
   uv = texcoord;
@@ -90,6 +92,7 @@ void main()  {
   finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
   normal = texture(normals, texcoord).xyz * 2.0 - 1.0;
+  velocity = texture(velocities, texcoord).xy;
 }
 """
 water_shader = """
@@ -98,6 +101,7 @@ water_shader = """
 in vec2 uv;
 in float height;
 in vec3 normal;
+in vec2 velocity;
 
 layout(location = 0) out vec4 diffuseColor;
 
@@ -108,8 +112,10 @@ vec3 lightColor = vec3(1.0, 1.0, 1.0);
 vec3 waterColor = vec3(0.5, 0.5, 1.0);
 
 void main () {
-  float lambertian_diffusion_weight = max(0.0, dot(light_direction, normal));
-  diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
+  //float lambertian_diffusion_weight = max(0.0, dot(light_direction, normal));
+  //diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
+  //diffuseColor = vec4(normal * 0.5 + 0.5, 1.0);
+  diffuseColor = vec4(length(velocity) * 0.02, 0.0, 0.0, 1.0);
 }
 """
 
@@ -174,6 +180,7 @@ def make_terrain(simulator, resolution=None):
     visual_water_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     visual_water_np.set_shader_input("heightB", simulator.textures['water_height'])
     visual_water_np.set_shader_input("normals", simulator.textures['water_normal_map'])
+    visual_water_np.set_shader_input("velocities", simulator.textures['water_velocity'])
     
     
     visual_water_np.reparent_to(visual_terrain_np)

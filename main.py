@@ -13,90 +13,134 @@ from direct.gui.OnscreenText import OnscreenText
 
 from simulator import BoundaryConditions
 from simulator import Simulation
-from simulator import default_hyper_model
 from visuals import make_terrain
 import make_heightmaps
+from model import cutting_edge_model as model
+
+
+hyper_params, model_params, _, _ = model
 
 
 parser = ArgumentParser(
-    description="Hydraulics simulation for Panda3D.",
-    epilog='\n'.join(
-        [
-            "Default values are:",
-            "Resolution      : 256",
-            "Boundary        : open",
-            "Evaporation     : 0.05",
-            "Pipe coefficient: 98.1 (1g, 10m^2 diameter)",
-            "Timestep        : realtime",
-        ],
-    ),
+    description="Hydraulic erosion simulation for Panda3D.",
     formatter_class=RawDescriptionHelpFormatter,
-)
-parser.add_argument(
-    '-r',
-    '--resolution',
-    type=int,
-    help='Side length of the simulation in cells.',
-)
-parser.add_argument(
-    '-e',
-    '--evaporation',
-    type=float,
-    help='Fraction of of total water in a cell that is evaporated in a second.',
-)
-parser.add_argument(
-    '-p',
-    '--pipe',
-    type=float,
-    help='Pipe coefficient; Gravity * crossarea of the pipe / its length.',
+    epilog="Defaults:\n" + '\n'.join([
+        f"{name}: {value}"
+        for name, value in model_params.items()
+    ])
 )
 parser.add_argument(
     '-t',
     '--timestep',
     type=float,
-    help='Time step.',
+    help='Time step. Omit to use wall time.',
 )
 parser.add_argument(
-    '-m',
+    '-R',
+    '--resolution',
+    type=int,
+    help='Side length of the simulation in cells.',
+)
+parser.add_argument(
+    '-B',
+    '--boundary-condition',
+    choices=['open', 'closed', 'wrap'],
+    help="Type of the boundary at the map's edge.",
+)
+parser.add_argument(
+    '-p',
+    '--pipe-coefficient',
+    type=float,
+    help='Pipe coefficient; Gravity * crossarea of the pipe / its length.',
+)
+parser.add_argument(
+    '-c',
+    '--cell-distance',
+    type=float,
+    help='Side length of each cell.',
+)
+parser.add_argument(
+    '-s',
+    '--sediment-capacity',
+    type=float,
+    help='How much sediment each unit of water can carry.',
+)
+parser.add_argument(
+    '-e',
+    '--erosion-coefficient',
+    type=float,
+    help='',
+)
+parser.add_argument(
+    '-d',
+    '--deposition-coefficient',
+    type=float,
+    help='',
+)
+parser.add_argument(
+    '-l',
+    '--lower-tilt-bound',
+    type=float,
+    help='',
+)
+parser.add_argument(
+    '-v',
+    '--evaporation-constant',
+    type=float,
+    help='Fraction of of total water in a cell that is evaporated in a second.',
+)
+parser.add_argument(
+    '-M',
     '--memory',
     action='store_true',
     help='Print memory use.',
 )
 parser.add_argument(
-    '-s',
-    '--shaders',
+    '-S',
+    '--dump-shaders',
     action='store_true',
     help='Print shader source code.',
 )
-parser.add_argument(
-    '-b',
-    '--boundary',
-    choices=['open', 'closed', 'wrap'],
-    help="Select the map's boundary type.",
-)
 args = parser.parse_args()
 
-# Create the simulation
-model_kwargs = {}
+
+## Hyper parameters
 if args.resolution is not None:
-    model_kwargs['resolution'] = args.resolution
-if args.evaporation is not None:
-    model_kwargs['evaporation_constant'] = args.evaporation
-if args.pipe is not None:
-    model_kwargs['pipe_coefficient'] = args.pipe
-if args.shaders:
-    model_kwargs['dump_shaders'] = True
-hyper_model_kwargs = default_hyper_model
-if args.boundary:
-    hyper_model_kwargs['boundary_condition'] = {
+    hyper_params['resolution'] = args.resolution
+if args.boundary_condition is not None:
+    hyper_params['boundary_condition'] = {
         'open': BoundaryConditions.OPEN,
         'closed': BoundaryConditions.CLOSED,
         'wrap': BoundaryConditions.WRAPPING,
-    }[args.boundary]
-simulator = Simulation(
-    hyper_model=hyper_model_kwargs,
-    **model_kwargs,
-)
+    }[args.boundary_condition]
+# Model parameters
+if args.timestep is not None:
+    model_params['dt'] = args.timestep
+else:  # We need a scalar value to set up the shaders; We'll replace it with realtime values at runtime
+    model_params['dt'] = 0.0
+if args.pipe_coefficient is not None:
+    model_params['pipe_coefficient'] = args.pipe_coefficient
+if args.cell_distance is not None:
+    model_params['cell_distance'] = args.cell_distance
+if args.sediment_capacity is not None:
+    model_params['sediment_capacity'] = args.sediment_capacity
+if args.erosion_coefficient is not None:
+    model_params['erosion_coefficient'] = args.erosion_coefficient
+if args.deposition_coefficient is not None:
+    model_params['deposition_coefficient'] = args.deposition_coefficient
+if args.lower_tilt_bound is not None:
+    model_params['lower_tilt_bound'] = args.lower_tilt_bound
+if args.evaporation_constant is not None:
+    model_params['evaporation_constant'] = args.evaporation_constant
+
+
+# Create the simulator
+if args.dump_shaders:
+    print("dump")
+    simulator = Simulation(model, dump_shaders=True)
+else:
+    print("No dump")
+    simulator = Simulation(model)
 if args.memory:
     simulator.print_mem_usage()
 
@@ -127,7 +171,6 @@ else:
 terrain = make_terrain(simulator, resolution=resolution)
 terrain.reparent_to(base.render)
 simulator.attach_compute_nodes(terrain)
-#simulator.attach_compute_nodes(base.render)
 
 
 def spring(image):
@@ -157,11 +200,7 @@ class Interface:
     def __init__(self, simulator):
         self.simulator = simulator
         # Timestep
-        if args.timestep is not None:
-            print(f"Timestep: {args.timestep}")
-            self.simulator.dt = args.timestep
-        else:
-            print(f"Timestep: realtime")
+        if args.timestep is None:
             base.task_mgr.add(self.set_simulator_dt, sort=-5)
         # Influx
         self.fountain = False

@@ -101,29 +101,24 @@ TODO
 
 ### Current hot topics
 
-* Refactor simulation model and implementation. Adding a new step to the
-  process should not require touching as many parts of the code.
 * Aesthetics
   * Specular highlights
   * Fake SSS based on water depth
 * Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
+* Simulation model
+  * Step: Lateral sediment transport
+  * Boundary conditions: Erosion is pretty whack at boundaries.
+  * Steps: Sum up total terrain / water (to analyze the above bug).
 
 
 ### Small nice-to-haves
 
-* Command line parameters
-  * cell_distance=1.0
-  * sedimentCapacity=1.0
-  * erosionCoefficient=1.0
-  * sedimentationCoefficient=1.0
-  * lowerTiltBound=0.0
-* Simulation model
-  * Velocity field
-  * Erosion-deposition, lateral sediment transport
 * Visualization Switcher
   * Water
     * Depth
     * Normals
+    * Velocity
+    * Sediment content
     * Light model
 
 
@@ -200,3 +195,4 @@ Papers
 * "Interactive Generation of Time-evolving, Snow-Covered Landscapes with Avalanches": https://inria.hal.science/hal-01736971/file/interactive-generation-time.pdf
 * "Waterfall Simulation with Spray Cloud in different Environments": https://www.jstage.jst.go.jp/article/artsci/15/3/15_111/_pdf
 * "Interactive Procedural Modelling of Coherent Waterfall Scenes": https://inria.hal.science/hal-01095858/file/waterfall.pdf
+* "Slab and Powder-Snow avalanche animation on the GPU": https://bth.diva-portal.org/smash/get/diva2:1606730/FULLTEXT02.pdf

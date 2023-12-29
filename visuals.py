@@ -120,7 +120,7 @@ void main () {
   //diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
   //diffuseColor = vec4(normal * 0.5 + 0.5, 1.0);
   //diffuseColor = vec4(length(velocity) * 0.02, 0.0, 0.0, 1.0);
-  diffuseColor = vec4(sediment, 0.0, 0.0, 1.0);
+  diffuseColor = vec4(sediment * 100.0, 0.0, 1.0 - sediment * 100.0, 1.0);
 }
 """
 
@@ -188,7 +188,7 @@ def make_terrain(simulator, resolution=None):
     visual_water_np.set_shader_input("heightB", simulator.textures['water_height'])
     visual_water_np.set_shader_input("normal_map", simulator.textures['water_normal_map'])
     visual_water_np.set_shader_input("velocity_map", simulator.textures['water_velocity'])
-    visual_water_np.set_shader_input("sediment_map", simulator.textures['suspended_sediment'])
+    visual_water_np.set_shader_input("sediment_map", simulator.textures['suspended_sediment_after_erosion_deposition'])
     
     
     visual_water_np.reparent_to(visual_terrain_np)

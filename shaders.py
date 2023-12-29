@@ -203,7 +203,27 @@ void main() {
 
   imageStore(sedimentOut, coord, vec4(sediment + deltaSuspendedMass, 0.0, 0.0, 0.0));
   imageStore(terrainHeightOut, coord, vec4(terrain - deltaSuspendedMass));
+}
+"""
 
+
+shader_sources['transport_solute'] = """
+#version 430
+
+layout (local_size_x=16, local_size_y=16) in;
+
+uniform float dt;
+
+uniform sampler2D soluteIn;
+layout(rg16f) uniform readonly image2D velocityMap;
+layout(r16f) uniform writeonly image2D soluteOut;
+
+void main() {
+  ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
+  vec2 velocity = imageLoad(velocityMap, coord).xy;
+  vec2 fcoord = vec2(coord);
+  float newSoluteAmount = texture(soluteIn, fcoord - velocity * dt).x;
+  imageStore(soluteOut, coord, vec4(newSoluteAmount, 0.0, 0.0, 0.0));
 }
 """
 

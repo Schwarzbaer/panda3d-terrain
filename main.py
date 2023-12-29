@@ -7,6 +7,8 @@ from panda3d.core import load_prc_file_data
 from panda3d.core import PStatClient
 from panda3d.core import KeyboardButton
 from panda3d.core import TextNode
+from panda3d.core import CardMaker
+from panda3d.core import NodePath
 
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
@@ -217,6 +219,8 @@ class Interface:
         # GUI
         base.set_frame_rate_meter(True)
         self.setup_help_text()
+        self.setup_data_viewer()
+        base.accept("v", self.toggle_data_map)
 
     def setup_help_text(self):
         self.help_text_wasd = OnscreenText(
@@ -240,7 +244,20 @@ class Interface:
             pos=(0.01, -0.15),
             scale=0.05,
         )
+        self.help_text_map_viewer = OnscreenText(
+            text=f"V to change viewed data map (currently - / {len(self.simulator.model[2])})",
+            parent=base.a2dTopLeft,
+            align=TextNode.ALeft,
+            pos=(0.01, -0.20),
+            scale=0.05,
+        )
 
+    def setup_data_viewer(self):
+        self.viewed_map = None
+        self.viewer = NodePath(CardMaker('data viewer').generate())
+        self.viewer.reparent_to(base.a2dBottomLeft)
+        self.viewer.hide()
+        
     # Set timestep on the simulation / enable wall time steps
     def set_simulator_dt(self, task):
         self.simulator.dt = globalClock.dt
@@ -262,6 +279,26 @@ class Interface:
         rain(image, self.rain)
         self.simulator.load_image('water_influx')
         return task.cont
+
+    def toggle_data_map(self):
+        num_maps = len(self.simulator.model[2])
+        # Start / increase / reset counter
+        if self.viewed_map is None:
+            self.viewed_map = 0
+            self.viewer.show()
+        else:
+            self.viewed_map += 1
+            if self.viewed_map == num_maps:
+                self.viewed_map = None
+                self.viewer.hide()
+        # Update viewer and help text
+        if self.viewed_map is None:
+            self.help_text_map_viewer['text'] = f"V to change viewed data map (currently - / {num_maps})"
+        else:
+            map_name = self.simulator.model[2][self.viewed_map][0]
+            data_map = self.simulator.textures[map_name]
+            self.viewer.set_texture(data_map)
+            self.help_text_map_viewer['text'] = f"V to change viewed data map (currently {self.viewed_map + 1} / {num_maps}, '{map_name}')"
 
     def rotate_camera(self, task):
         if base.mouseWatcherNode.has_mouse():

@@ -138,6 +138,7 @@ TODO
   * Workgroup size
   * Data resolution (`r16f` vs. `r32f`)
 * Simulation model
+  * Provide simple waterflow model
   * More papers
 * Performance
   * Measure, and find the maximum simulation size / optimal workgroup

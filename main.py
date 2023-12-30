@@ -9,6 +9,8 @@ from panda3d.core import KeyboardButton
 from panda3d.core import TextNode
 from panda3d.core import CardMaker
 from panda3d.core import NodePath
+from panda3d.core import Vec3
+from panda3d.core import LColor
 
 from direct.showbase.ShowBase import ShowBase
 from direct.gui.OnscreenText import OnscreenText
@@ -257,6 +259,15 @@ class Interface:
         self.viewer = NodePath(CardMaker('data viewer').generate())
         self.viewer.reparent_to(base.a2dBottomLeft)
         self.viewer.hide()
+        self.help_text_peeker_value = OnscreenText(
+            text=f"",
+            font=base.loader.load_font('CourierPrimeCode.ttf'),
+            align=TextNode.ALeft,
+            parent=self.viewer,
+            pos=(0.0, 1.02),
+            scale=0.05,
+        )
+        base.task_mgr.add(self.peek_data_map)
         
     # Set timestep on the simulation / enable wall time steps
     def set_simulator_dt(self, task):
@@ -294,11 +305,35 @@ class Interface:
         # Update viewer and help text
         if self.viewed_map is None:
             self.help_text_map_viewer['text'] = f"V to change viewed data map (currently - / {num_maps})"
+            self.peeker_map = None
         else:
             map_name = self.simulator.model[2][self.viewed_map][0]
             data_map = self.simulator.textures[map_name]
             self.viewer.set_texture(data_map)
             self.help_text_map_viewer['text'] = f"V to change viewed data map (currently {self.viewed_map + 1} / {num_maps}, '{map_name}')"
+            self.peeker_map = data_map
+
+    def peek_data_map(self, task):
+        if self.viewed_map is not None and base.mouseWatcherNode.hasMouse():
+            mouse_coord = base.mouseWatcherNode.get_mouse()
+            viewer_coord = self.viewer.get_relative_point(base.cam2d, Vec3(mouse_coord.x, 0, mouse_coord.y))
+            if 0.0 <= viewer_coord.x <= 1.0 and 0.0 <= viewer_coord.z <= 1.0:
+                color = LColor()
+                base.graphicsEngine.extract_texture_data(
+                    self.peeker_map,
+                    base.win.get_gsg(),
+                )
+                self.peeker = self.peeker_map.peek()
+                self.peeker.lookup(color, viewer_coord.x, viewer_coord.z)
+                num_channels = self.peeker_map.num_components
+                if num_channels == 1:
+                    data_text = f"{color.x: 2.4f}"
+                elif num_channels == 2:
+                    data_text = f"{color.x: 2.4f}  {color.y: 2.4f}"
+                elif num_channels == 4:
+                    data_text = f"{color.x: 2.4f}  {color.y: 2.4f}  {color.z: 2.4f}  {color.w: 2.4f}"
+                self.help_text_peeker_value['text'] = data_text
+        return task.cont
 
     def rotate_camera(self, task):
         if base.mouseWatcherNode.has_mouse():

@@ -33,7 +33,6 @@ water_flow_model = (
         ('water_crossflux', 4),
         ('water_velocity', 2),
         ('water_height_after_crossflux', 1),
-        ('water_height_after_evaporation', 1),
         ('terrain_normal_map', 4),
         ('water_normal_map', 4),
     ],

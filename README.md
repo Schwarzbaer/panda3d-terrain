@@ -101,9 +101,7 @@ TODO
 
 ### Current hot topics
 
-* Aesthetics
-  * Specular highlights
-  * Fake SSS based on water depth
+* Pure water flow model
 * Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
 * Simulation model
   * Step: Lateral sediment transport
@@ -113,13 +111,9 @@ TODO
 
 ### Small nice-to-haves
 
-* Visualization Switcher
-  * Water
-    * Depth
-    * Normals
-    * Velocity
-    * Sediment content
-    * Light model
+* Aesthetics
+  * Specular highlights
+  * Fake SSS based on water depth
 
 
 ### Icebox

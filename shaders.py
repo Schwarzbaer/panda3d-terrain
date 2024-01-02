@@ -201,7 +201,7 @@ void main() {
   float massDeposited = max(0.0, deltaCapacity) * depositionCoefficient;
   float deltaSuspendedMass = (massEroded - massDeposited) * dt;
 
-  imageStore(sedimentOut, coord, vec4(sediment + deltaSuspendedMass, 0.0, 0.0, 0.0));
+  imageStore(sedimentOut, coord, vec4(sediment + deltaSuspendedMass));
   imageStore(terrainHeightOut, coord, vec4(terrain - deltaSuspendedMass));
 }
 """

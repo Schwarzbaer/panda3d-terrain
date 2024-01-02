@@ -48,6 +48,9 @@ in vec2 uv;
 in float height;
 in vec3 normal;
 
+uniform float minHeight;
+uniform float maxHeight;
+
 layout(location = 0) out vec4 diffuseColor;
 
 vec3 green = vec3(0.0, 1.0, 0.0);
@@ -60,7 +63,8 @@ vec3 waterColor = vec3(0.5, 0.5, 1.0);
 """+lambertian_diffusion+"""
 
 void main () {
-  vec3 terrainBaseColor = mix(green, gray, height);
+  float heightRatio = (height - minHeight) / (maxHeight - minHeight);
+  vec3 terrainBaseColor = mix(green, gray, heightRatio);
   diffuseColor = vec4(lambertianDiffusion(normal, terrainBaseColor, light_direction, lightColor), 1.0);
 }
 """
@@ -158,7 +162,7 @@ def make_model(resolution):
     return surface
 
 
-def make_terrain(simulator, resolution=None):
+def make_terrain(simulator, resolution=None, min_height=0.5, max_height=1.0):
     if resolution is None:
         resolution = simulator.resolution
     # Putting the visual terrain together...
@@ -172,6 +176,8 @@ def make_terrain(simulator, resolution=None):
     visual_terrain_np.set_shader(visual_terrain_shader)
     visual_terrain_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     visual_terrain_np.set_shader_input("normals", simulator.textures['terrain_normal_map'])
+    visual_terrain_np.set_shader_input("maxHeight", max_height) 
+    visual_terrain_np.set_shader_input("minHeight", min_height) 
     
     
     visual_water_np = make_model(resolution)
@@ -195,8 +201,7 @@ def make_terrain(simulator, resolution=None):
     
     
     # Attaching the terrain to the scene
-    visual_terrain_np.set_pos(-1.0, -1.0, 0.0)
-    visual_terrain_np.set_sx(2.0)
-    visual_terrain_np.set_sy(2.0)
+    visual_terrain_np.set_pos(-1.0, -1.0, -1.0)
+    visual_terrain_np.set_scale(2.0)
 
     return visual_terrain_np

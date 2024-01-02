@@ -149,13 +149,22 @@ if args.memory:
     simulator.print_mem_usage()
 
 
-make_heightmaps.perlin(simulator.images['terrain_height'])
+# "Complex" terrain
+edge_length = simulator.resolution
+base_frequency = 256.0 / edge_length
+min_height = 0.5
+max_height = base_frequency + min_height
+make_heightmaps.perlin_terrain(simulator.images['terrain_height'], min_height, max_height, base_freq=base_frequency)
+
+#min_height, max_height = 0.0, 1.0
+#make_heightmaps.perlin(simulator.images['terrain_height'])
 #make_heightmaps.funnel(simulator.images['terrain_height'])
 #make_heightmaps.sine_hills(simulator.images['terrain_height'], phases=1)
 #make_heightmaps.block(simulator.images['terrain_height'])
 #make_heightmaps.half(simulator.images['terrain_height'])
-simulator.load_image('terrain_height')
 #make_heightmaps.half(simulator.images['water_height'])
+
+simulator.load_image('terrain_height')
 #simulator.load_image('water_height')
 
 
@@ -172,14 +181,14 @@ if simulator.resolution > 256:
     resolution = 256
 else:
     resolution = simulator.resolution
-terrain = make_terrain(simulator, resolution=resolution)
+terrain = make_terrain(simulator, resolution=resolution, min_height=min_height, max_height=max_height)
 terrain.reparent_to(base.render)
 simulator.attach_compute_nodes(terrain)
 
 
 def spring(image):
-    influx_mass = 3.0
-    influx_randomness = 1.0
+    influx_mass = 0.5
+    influx_randomness = influx_mass * 0.25
     influx_area = 5
     resolution = simulator.resolution
     offset = simulator.resolution //2 - influx_area // 2
@@ -216,7 +225,7 @@ class Interface:
         base.cam.node().get_lens().near = 0.001
         base.camera.set_pos(0, 0, 0)
         base.camera.set_p(-30)
-        base.cam.set_pos(0, -3, 0)
+        base.cam.set_pos(0, -5, 0)
         base.task_mgr.add(self.rotate_camera)
         # GUI
         base.set_frame_rate_meter(True)

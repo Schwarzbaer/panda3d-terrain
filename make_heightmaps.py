@@ -2,6 +2,7 @@ from math import pi
 from math import cos
 
 from panda3d.core import PerlinNoise2
+from panda3d.core import StackedPerlinNoise2
 
 
 def fill_data(image, func):
@@ -33,6 +34,16 @@ def perlin(image):
     noise_generator.setScale(0.2)
     def height(x, y):
         return (noise_generator.noise(x, y) / 2.0 + 0.5) * 0.5 + 0.5
+    fill_data(image, height)
+
+
+def perlin_terrain(image, min_height, max_height, base_freq=1.0):
+    noise_generator = StackedPerlinNoise2(base_freq, base_freq, 4, 2.0, 0.4)
+    height_diff = max_height - min_height
+    def height(x, y):
+        local_height = noise_generator.noise(x, y) * 0.5 + 0.5  # Values in 0.0 - 1.0
+        local_height = local_height * height_diff + min_height  # scaled to given range
+        return local_height
     fill_data(image, height)
 
 

@@ -86,8 +86,6 @@ uniform sampler2D sediment_map;
 out vec2 uv;
 out float height;
 out vec3 normal;
-out vec2 velocity;
-out float sediment;
 
 void main()  {
   uv = texcoord;
@@ -98,8 +96,6 @@ void main()  {
   finalPos.z = height;
   gl_Position = p3d_ModelViewProjectionMatrix * finalPos;
   normal = texture(normal_map, texcoord).xyz * 2.0 - 1.0;
-  velocity = texture(velocity_map, texcoord).xy;
-  sediment = texture(sediment_map, texcoord).x;
 }
 """
 water_shader = """
@@ -108,8 +104,6 @@ water_shader = """
 in vec2 uv;
 in float height;
 in vec3 normal;
-in vec2 velocity;
-in float sediment;
 
 layout(location = 0) out vec4 diffuseColor;
 
@@ -121,10 +115,7 @@ vec3 waterColor = vec3(0.5, 0.5, 1.0);
 
 void main () {
   //float lambertian_diffusion_weight = max(0.0, dot(light_direction, normal));
-  //diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
-  //diffuseColor = vec4(normal * 0.5 + 0.5, 1.0);
-  //diffuseColor = vec4(length(velocity) * 0.02, 0.0, 0.0, 1.0);
-  diffuseColor = vec4(sediment * 100.0, 0.0, 1.0 - sediment * 100.0, 1.0);
+  diffuseColor = vec4(lambertianDiffusion(normal, waterColor, light_direction, lightColor), 1.0);
 }
 """
 
@@ -178,8 +169,7 @@ def make_terrain(simulator, resolution=None, min_height=0.5, max_height=1.0):
     visual_terrain_np.set_shader_input("normals", simulator.textures['terrain_normal_map'])
     visual_terrain_np.set_shader_input("maxHeight", max_height) 
     visual_terrain_np.set_shader_input("minHeight", min_height) 
-    
-    
+
     visual_water_np = make_model(resolution)
     visual_water_shader = Shader.make(
         Shader.SL_GLSL,
@@ -193,12 +183,8 @@ def make_terrain(simulator, resolution=None, min_height=0.5, max_height=1.0):
     visual_water_np.set_shader_input("heightA", simulator.textures['terrain_height'])
     visual_water_np.set_shader_input("heightB", simulator.textures['water_height'])
     visual_water_np.set_shader_input("normal_map", simulator.textures['water_normal_map'])
-    visual_water_np.set_shader_input("velocity_map", simulator.textures['water_velocity'])
-    visual_water_np.set_shader_input("sediment_map", simulator.textures['suspended_sediment_after_erosion_deposition'])
-    
-    
+
     visual_water_np.reparent_to(visual_terrain_np)
-    
     
     # Attaching the terrain to the scene
     visual_terrain_np.set_pos(-1.0, -1.0, -1.0)

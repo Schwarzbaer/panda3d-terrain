@@ -19,7 +19,8 @@ from simulator import BoundaryConditions
 from simulator import Simulation
 from visuals import make_terrain
 import make_heightmaps
-from model import cutting_edge_model as model
+#from model import cutting_edge_model as model
+from model import water_flow_model as model
 
 
 hyper_params, model_params, _, _ = model

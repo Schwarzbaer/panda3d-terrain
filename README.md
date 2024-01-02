@@ -101,7 +101,6 @@ TODO
 
 ### Current hot topics
 
-* Pure water flow model
 * Bug: Why is water leaking out of a CLOSED/WRAPPING simulation?
 * Simulation model
   * Step: Lateral sediment transport
@@ -132,7 +131,6 @@ TODO
   * Workgroup size
   * Data resolution (`r16f` vs. `r32f`)
 * Simulation model
-  * Provide simple waterflow model
   * More papers
 * Performance
   * Measure, and find the maximum simulation size / optimal workgroup

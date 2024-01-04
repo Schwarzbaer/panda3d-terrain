@@ -33,12 +33,12 @@ shader_sources = {}
 shader_sources['add_water'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float dt;
-layout(r16f) uniform readonly image2D heightIn;
-layout(r16f) uniform readonly image2D influx;
-layout(r16f) uniform writeonly image2D heightOut;
+layout(r{{precision}}f) uniform readonly image2D heightIn;
+layout(r{{precision}}f) uniform readonly image2D influx;
+layout(r{{precision}}f) uniform writeonly image2D heightOut;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -51,14 +51,14 @@ void main() {
 shader_sources['calculate_outflux'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float dt;
 uniform float pipeCoefficient;
 uniform float cellDistance;
-layout(r16f) uniform readonly image2D terrainHeight;
-layout(r16f) uniform readonly image2D waterHeight;
-layout(rgba16f) uniform image2D waterCrossflux;
+layout(r{{precision}}f) uniform readonly image2D terrainHeight;
+layout(r{{precision}}f) uniform readonly image2D waterHeight;
+layout(rgba{{precision}}f) uniform image2D waterCrossflux;
 
 const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
 
@@ -121,14 +121,14 @@ void main() {
 shader_sources['apply_crossflux'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float dt;
 uniform float cellDistance;
-layout(r16f) uniform readonly image2D heightIn;
-layout(rgba16f) uniform readonly image2D waterCrossflux;
-layout(rg16f) uniform writeonly image2D waterVelocity;
-layout(r16f) uniform writeonly image2D heightOut;
+layout(r{{precision}}f) uniform readonly image2D heightIn;
+layout(rgba{{precision}}f) uniform readonly image2D waterCrossflux;
+layout(rg{{precision}}f) uniform writeonly image2D waterVelocity;
+layout(r{{precision}}f) uniform writeonly image2D heightOut;
 
 const ivec2 deltaCoord[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
 
@@ -173,7 +173,7 @@ void main() {
 shader_sources['erode_deposit'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float dt;
 uniform float sedimentCapacity;
@@ -181,12 +181,15 @@ uniform float erosionCoefficient;
 uniform float depositionCoefficient;
 uniform float lowerTiltBound;
 
-layout(r16f) uniform readonly image2D terrainHeightIn;
-layout(r16f) uniform writeonly image2D terrainHeightOut;
-layout(rgba16f) uniform readonly image2D normals;
-layout(rg16f) uniform readonly image2D waterVelocity;
-layout(r16f) uniform readonly image2D sedimentIn;
-layout(r16f) uniform writeonly image2D sedimentOut;
+layout(r{{precision}}f) uniform readonly image2D terrainHeightIn;
+layout(r{{precision}}f) uniform writeonly image2D terrainHeightOut;
+layout(rgba{{precision}}f) uniform readonly image2D normals;
+layout(rg{{precision}}f) uniform readonly image2D waterVelocity;
+layout(r{{precision}}f) uniform readonly image2D sedimentIn;
+layout(r{{precision}}f) uniform writeonly image2D sedimentOut;
+{% if debug %}
+  layout(rg{{precision}}f) uniform image2D sedimentation;
+{% endif %}
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -203,6 +206,9 @@ void main() {
 
   imageStore(sedimentOut, coord, vec4(sediment + deltaSuspendedMass));
   imageStore(terrainHeightOut, coord, vec4(terrain - deltaSuspendedMass));
+  {% if debug %}
+    imageStore(sedimentation, coord, vec4(massEroded, massDeposited, 0.0, 0.0) * 1000000.0);
+  {% endif %}
 }
 """
 
@@ -210,13 +216,13 @@ void main() {
 shader_sources['transport_solute'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float dt;
 
 uniform sampler2D soluteIn;
-layout(rg16f) uniform readonly image2D velocityMap;
-layout(r16f) uniform writeonly image2D soluteOut;
+layout(rg{{precision}}f) uniform readonly image2D velocityMap;
+layout(r{{precision}}f) uniform writeonly image2D soluteOut;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -231,12 +237,12 @@ void main() {
 shader_sources['evaporate'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
 uniform float evaporationConstant;
 uniform float dt;
-layout(r16f) uniform readonly image2D heightIn;
-layout(r16f) uniform writeonly image2D heightOut;
+layout(r{{precision}}f) uniform readonly image2D heightIn;
+layout(r{{precision}}f) uniform writeonly image2D heightOut;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -249,10 +255,10 @@ void main() {
 shader_sources['update_main_data'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
-layout(r16f) uniform readonly image2D heightNew;
-layout(r16f) uniform writeonly image2D heightBase;
+layout(r{{precision}}f) uniform readonly image2D heightNew;
+layout(r{{precision}}f) uniform writeonly image2D heightBase;
 
 void main() {
   ivec2 coord = ivec2(gl_GlobalInvocationID.xy);
@@ -264,10 +270,10 @@ void main() {
 shader_sources['calculate_terrain_normals'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
-layout(r16f) uniform readonly image2D terrainHeight;
-layout(rgba16f) uniform writeonly image2D normals;
+layout(r{{precision}}f) uniform readonly image2D terrainHeight;
+layout(rgba{{precision}}f) uniform writeonly image2D normals;
 
 float totalHeight(ivec2 uv) {
   return imageLoad(terrainHeight, uv).x;
@@ -278,11 +284,11 @@ float totalHeight(ivec2 uv) {
 shader_sources['calculate_water_normals'] = """
 #version 430
 
-layout (local_size_x=16, local_size_y=16) in;
+layout (local_size_x={{workgroup[0]}}, local_size_y={{workgroup[1]}}) in;
 
-layout(r16f) uniform readonly image2D terrainHeight;
-layout(r16f) uniform readonly image2D waterHeight;
-layout(rgba16f) uniform writeonly image2D normals;
+layout(r{{precision}}f) uniform readonly image2D terrainHeight;
+layout(r{{precision}}f) uniform readonly image2D waterHeight;
+layout(rgba{{precision}}f) uniform writeonly image2D normals;
 
 float totalHeight(ivec2 uv) {
   return imageLoad(terrainHeight, uv).x + imageLoad(waterHeight, uv).x;

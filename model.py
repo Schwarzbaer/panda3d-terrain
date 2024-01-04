@@ -12,6 +12,8 @@ water_flow_model = (
     dict(
         resolution=256,
         boundary_condition=BoundaryConditions.OPEN,
+        precision=16,
+        workgroup=[16, 16],
     ),
     # Model parameters
     dict(
@@ -40,7 +42,7 @@ water_flow_model = (
     dict(
         add_water=(                       # step name
             'add_water',                  # shader source
-            [],                           # hyper parameters
+            ['workgroup', 'precision'],   # hyper parameters
             ['dt'],                       # model parameters,
             dict(
                 heightIn='water_height',  # glsl input name='map_name'
@@ -50,7 +52,7 @@ water_flow_model = (
         ),
         calculate_outflux=(
             'calculate_outflux',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             ['dt', 'pipe_coefficient', 'cell_distance'],
             dict(
                 terrainHeight='terrain_height',
@@ -60,7 +62,7 @@ water_flow_model = (
         ),
         apply_crossflux=(
             'apply_crossflux',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             ['dt', 'cell_distance'],
             dict(
                 heightIn='water_height_after_influx',
@@ -71,7 +73,7 @@ water_flow_model = (
         ),
         evaporate=(
             'evaporate',
-            [],
+            ['workgroup', 'precision'],
             ['dt', 'evaporation_constant'],
             dict(
                 heightIn='water_height_after_crossflux',
@@ -80,7 +82,7 @@ water_flow_model = (
         ),
         calculate_terrain_normals=(
             'calculate_terrain_normals',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             [],
             dict(
                 terrainHeight='terrain_height',
@@ -89,7 +91,7 @@ water_flow_model = (
         ),
         calculate_water_normals=(
             'calculate_water_normals',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             [],
             dict(
                 terrainHeight='terrain_height',
@@ -106,6 +108,9 @@ cutting_edge_model = (
     dict(
         resolution=256,
         boundary_condition=BoundaryConditions.OPEN,
+        precision=16,
+        workgroup=[16, 16],
+        debug=True,
     ),
     # Model parameters
     dict(
@@ -134,12 +139,13 @@ cutting_edge_model = (
         ('water_height_after_evaporation', 1),
         ('terrain_normal_map', 4),
         ('water_normal_map', 4),
+        ('debug_sediment_transfer', 2),
     ],
     # Processes
     dict(
         add_water=(                       # step name
             'add_water',                  # shader source
-            [],                           # hyper parameters
+            ['workgroup', 'precision'],   # hyper parameters
             ['dt'],                       # model parameters,
             dict(
                 heightIn='water_height',  # glsl input name='map_name'
@@ -149,7 +155,7 @@ cutting_edge_model = (
         ),
         calculate_outflux=(
             'calculate_outflux',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             ['dt', 'pipe_coefficient', 'cell_distance'],
             dict(
                 terrainHeight='terrain_height',
@@ -159,7 +165,7 @@ cutting_edge_model = (
         ),
         apply_crossflux=(
             'apply_crossflux',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             ['dt', 'cell_distance'],
             dict(
                 heightIn='water_height_after_influx',
@@ -170,7 +176,7 @@ cutting_edge_model = (
         ),
         erode_deposit=(
             'erode_deposit',
-            [],
+            ['workgroup', 'precision', 'debug'],
             ['dt', 'sediment_capacity', 'erosion_coefficient', 'deposition_coefficient', 'lower_tilt_bound'],
             dict(
                 terrainHeightIn='terrain_height',
@@ -179,11 +185,12 @@ cutting_edge_model = (
                 waterVelocity='water_velocity',
                 sedimentIn='suspended_sediment',
                 sedimentOut='suspended_sediment_after_erosion_deposition',
+                sedimentation='debug_sediment_transfer',
             ),
         ),
         transport_sediment=(
             'transport_solute',
-            [],
+            ['workgroup', 'precision'],
             ['dt'],
             dict(
                 soluteIn='suspended_sediment_after_erosion_deposition',
@@ -193,7 +200,7 @@ cutting_edge_model = (
         ),
         evaporate=(
             'evaporate',
-            [],
+            ['workgroup', 'precision'],
             ['dt', 'evaporation_constant'],
             dict(
                 heightIn='water_height_after_crossflux',
@@ -202,7 +209,7 @@ cutting_edge_model = (
         ),
         update_terrain_height=(
             'update_main_data',
-            [],
+            ['workgroup', 'precision'],
             [],
             dict(
                 heightNew='terrain_height_after_erosion_deposition',
@@ -211,7 +218,7 @@ cutting_edge_model = (
         ),
         update_water_height=(
             'update_main_data',
-            [],
+            ['workgroup', 'precision'],
             [],
             dict(
                 heightNew='water_height_after_evaporation',
@@ -220,7 +227,7 @@ cutting_edge_model = (
         ),
         update_sediment=(
             'update_main_data',
-            [],
+            ['workgroup', 'precision'],
             [],
             dict(
                 heightNew='suspended_sediment_after_transport',
@@ -229,7 +236,7 @@ cutting_edge_model = (
         ),
         calculate_terrain_normals=(
             'calculate_terrain_normals',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             [],
             dict(
                 terrainHeight='terrain_height',
@@ -238,7 +245,7 @@ cutting_edge_model = (
         ),
         calculate_water_normals=(
             'calculate_water_normals',
-            ['boundary_condition'],
+            ['workgroup', 'precision', 'boundary_condition'],
             [],
             dict(
                 terrainHeight='terrain_height',

@@ -128,8 +128,6 @@ TODO
     * Zero (current)
     * Generator shaders
     * Loaded images
-  * Workgroup size
-  * Data resolution (`r16f` vs. `r32f`)
 * Simulation model
   * More papers
 * Performance

@@ -19,26 +19,27 @@ from simulator import BoundaryConditions
 from simulator import Simulation
 from visuals import make_terrain
 import make_heightmaps
-#from model import cutting_edge_model as model
-from model import water_flow_model as model
+from model import cutting_edge_model as model
+#from model import water_flow_model as model
 
 
 hyper_params, model_params, _, _ = model
 
 
+defaults = "Defaults:\n"
+defaults += '\n'.join([
+    f"{name}: {value}"
+    for name, value in hyper_params.items()
+])
+defaults += "\n"
+defaults += '\n'.join([
+    f"{name}: {value}"
+    for name, value in model_params.items()
+])
 parser = ArgumentParser(
     description="Hydraulic erosion simulation for Panda3D.",
     formatter_class=RawDescriptionHelpFormatter,
-    epilog="Defaults:\n" + '\n'.join([
-        f"{name}: {value}"
-        for name, value in model_params.items()
-    ])
-)
-parser.add_argument(
-    '-t',
-    '--timestep',
-    type=float,
-    help='Time step. Omit to use wall time.',
+    epilog=defaults
 )
 parser.add_argument(
     '-R',
@@ -47,10 +48,30 @@ parser.add_argument(
     help='Side length of the simulation in cells.',
 )
 parser.add_argument(
+    '-W',
+    '--workgroup',
+    type=int,
+    nargs=2,
+    help='Workgroup size.',
+)
+parser.add_argument(
+    '-P',
+    '--precision',
+    type=int,
+    choices=[16, 32],
+    help='Data precision used (half float or float).',
+)
+parser.add_argument(
     '-B',
     '--boundary-condition',
     choices=['open', 'closed', 'wrap'],
     help="Type of the boundary at the map's edge.",
+)
+parser.add_argument(
+    '-t',
+    '--timestep',
+    type=float,
+    help='Time step. Omit to use wall time.',
 )
 parser.add_argument(
     '-p',
@@ -110,6 +131,10 @@ args = parser.parse_args()
 
 
 ## Hyper parameters
+if args.workgroup is not None:
+    hyper_params['workgroup'] = args.workgroup
+if args.precision is not None:
+    hyper_params['precision'] = args.precision
 if args.resolution is not None:
     hyper_params['resolution'] = args.resolution
 if args.boundary_condition is not None:

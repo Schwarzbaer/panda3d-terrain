@@ -97,7 +97,8 @@ class Simulation:
             )
             compute_shader.set_filename(Shader.ST_none, step_name)
             resolution = hyper_params['resolution']
-            workgroups = (resolution // 16, resolution // 16, 1)
+            workgroup_size = hyper_params['workgroup']
+            workgroups = (resolution // workgroup_size[0], resolution // workgroup_size[1], 1)
             compute_node = ComputeNode(step_name)
             compute_node.add_dispatch(*workgroups)
             compute_np = NodePath(compute_node)
